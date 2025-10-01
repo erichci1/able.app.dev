@@ -1,63 +1,32 @@
-import ExploreMenuServer from "@/components/ExploreMenuServer";
 import { supabaseServer } from "@/lib/supabase/server";
 
-const PHASES = ["activate","build","leverage","execute"];
+type Phase = "all" | "activate" | "build" | "leverage" | "execute";
+type VideoRow = {
+    id: string;
+    title: string | null;
+    summary: string | null;
+    video_url: string | null;
+    phase?: string | null;
+    created_at: string | null;
+};
 
-export default async function VideosPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
-const supabase = supabaseServer();
-const { data: { user } } = await supabase.auth.getUser();
-const phase = str(searchParams?.phase) ?? "all";
+export default async function VideosPage({ searchParams }: { searchParams?: Record<string, string | string[]> }) {
+    const supabase = supabaseServer();
+    const phase = (Array.isArray(searchParams?.phase) ? searchParams?.phase[0] : searchParams?.phase) as Phase ?? "all";
 
-if (user) {
-await supabase.from("user_content_seen").upsert(
-{ user_id: user.id, kind: "video", last_seen_at: new Date().toISOString() },
-{ onConflict: "user_id,kind" }
-);
+    let q = supabase.from("videos").select("id,title,summary,video_url,phase,created_at").order("created_at", { ascending: false }).limit(100);
+    if (phase !== "all") q = q.eq("phase", phase);
+
+    const { data, error } = await q;
+    if (error) return <div>{error.message}</div>;
+    const rows: VideoRow[] = data ?? [];
+
+    return (
+        <section>
+            <h1>Videos</h1>
+            <ul>
+                {rows.map(r => <li key={r.id}>{r.title}</li>)}
+            </ul>
+        </section>
+    );
 }
-
-let q = supabase.from("videos").select("id, title, summary, video_url, phase, created_at").order("created_at", { ascending: false }).limit(100);
-if (phase !== "all" && PHASES.includes(phase)) q = q.eq("phase", phase as any);
-
-const { data, error } = await q;
-const rows = data ?? [];
-
-return (
-<>
-<ExploreMenuServer />
-<section className="card">
-<h1>Video</h1>
-<div className="muted" style={{ marginTop: 6 }}>
-{phase === "all" ? "All phases" : label(phase)}
-</div>
-</section>
-
-{error ? (
-<section className="card"><div style={{ color:"#991b1b" }}>{error.message}</div></section>
-) : !rows.length ? (
-<section className="card"><div className="muted">No videos match your filters.</div></section>
-) : (
-<section className="card" style={{ padding:0 }}>
-<ul style={{ listStyle:"none", margin:0, padding:0 }}>
-{rows.map(r => (
-<li key={r.id} style={{ padding:16, borderBottom:"1px solid var(--border)", display:"grid", gridTemplateColumns:"1fr auto", gap:12 }}>
-<div>
-<div style={{ fontWeight:900 }}>{r.title}</div>
-<div className="muted" style={{ marginTop:4 }}>
-{fmtDate(r.created_at)} {r.phase ? `• ${label(r.phase)}` : ""}
-</div>
-{r.summary && <div className="muted" style={{ marginTop:6 }}>{r.summary}</div>}
-</div>
-<div className="hstack" style={{ justifySelf:"end" }}>
-{r.video_url && <a className="btn btn-primary" href={r.video_url} target="_blank" rel="noopener noreferrer">Watch</a>}
-</div>
-</li>
-))}
-</ul>
-</section>
-)}
-</>
-);
-}
-function str(v?: string | string[] | null){ if(!v) return undefined; return Array.isArray(v)?v[0]:v; }
-function fmtDate(iso?: string | null){ if(!iso) return ""; return new Date(iso).toLocaleDateString(undefined,{ month:"short", day:"2-digit", year:"numeric" }); }
-function label(p: string){ return p[0].toUpperCase()+p.slice(1); }
