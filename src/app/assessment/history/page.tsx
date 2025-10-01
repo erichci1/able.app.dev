@@ -10,56 +10,168 @@ type AssessRow = {
     execute_percentage: number | string | null;
 };
 
-// minimal filter builder
-type FilterBuilder<B> = {
-    eq: (c: string, v: unknown) => B;
-    gte: (c: string, v: unknown) => B;
-    lte: (c: string, v: unknown) => B;
-};
+function toISODateEndOfDay(d: string) {
+    const end = new Date(d);
+    end.setHours(23, 59, 59, 999);
+    return end.toISOString();
+}
 
-const baseFilter = <B extends FilterBuilder<B>>(q: B, userId: string, fromISO?: string, toISO?: string) => {
-    let b = q.eq("user_id", userId);
-    if (fromISO) b = b.gte("submission_date", fromISO);
-    if (toISO) b = b.lte("submission_date", toISO);
-    return b;
-};
-
-export default async function AssessmentHistoryPage({ searchParams }: { searchParams?: Record<string, string> }) {
+export default async function AssessmentHistoryPage({
+    searchParams,
+}: {
+    searchParams?: Record<string, string | string[] | undefined>;
+}) {
     const supabase = supabaseServer();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return <div>Please sign in.</div>;
+    if (!user) return <section className="card">Please sign in.</section>;
 
-    const fromISO = searchParams?.from ?? undefined;
-    const toISO = searchParams?.to ?? undefined;
+    // params
+    const orderParam = str(searchParams?.order) ?? "new"; // new|old
+    const fromParam = str(searchParams?.from) ?? "";
+    const toParam = str(searchParams?.to) ?? "";
+    const pageParam = Number(str(searchParams?.page) ?? "1") || 1;
+    const sizeParam = Number(str(searchParams?.size) ?? "10") || 10;
 
-    const { data: rows, error } = await baseFilter(
-        supabase
-            .from("assessment_results_2")
-            .select("id, submission_date, activate_percentage, build_percentage, leverage_percentage, execute_percentage"),
-        user.id,
-        fromISO,
-        toISO
-    ).order("submission_date", { ascending: false });
+    const ascending = orderParam === "old";
+    const page = Math.max(1, pageParam);
+    const size = [10, 20, 50].includes(sizeParam) ? sizeParam : 10;
+    const fromIdx = (page - 1) * size;
+    const toIdx = fromIdx + size - 1;
 
-    if (error) return <div>{error.message}</div>;
+    // ---------- COUNT (inline filter; no deep generics)
+    let countQ = supabase
+        .from("assessment_results_2")
+        .select("id", { head: true, count: "exact" })
+        .eq("user_id", user.id);
+
+    if (fromParam) countQ = countQ.gte("submission_date", new Date(fromParam).toISOString());
+    if (toParam) countQ = countQ.lte("submission_date", toISODateEndOfDay(toParam));
+
+    const { count } = await countQ;
+    const totalCount: number = count ?? 0; // ✅ always a number
+
+    const lastPage = Math.max(1, Math.ceil(totalCount / size));
+    const current = Math.min(page, lastPage);
+
+    // ---------- PAGE ROWS (inline filter again)
+    let rowsQ = supabase
+        .from("assessment_results_2")
+        .select(`
+id,
+submission_date,
+activate_percentage,
+build_percentage,
+leverage_percentage,
+execute_percentage
+`)
+        .eq("user_id", user.id);
+
+    if (fromParam) rowsQ = rowsQ.gte("submission_date", new Date(fromParam).toISOString());
+    if (toParam) rowsQ = rowsQ.lte("submission_date", toISODateEndOfDay(toParam));
+
+    rowsQ = rowsQ.order("submission_date", { ascending }).range(fromIdx, toIdx);
+
+    const { data: rows, error } = await rowsQ;
+    if (error) {
+        return (
+            <section className="card">
+                <h1>Alignment History</h1>
+                <div style={{ color: "#991b1b", marginTop: 8 }}>{error.message}</div>
+            </section>
+        );
+    }
+
+    const list = (rows ?? []) as AssessRow[];
 
     return (
-        <section>
-            <h1>Assessment History</h1>
-            <table>
-                <tbody>
-                    {rows?.map((r: AssessRow) => (
-                        <tr key={String(r.id)}>
-                            <td>{r.submission_date}</td>
-                            <td>{r.activate_percentage}</td>
-                            <td>{r.build_percentage}</td>
-                            <td>{r.leverage_percentage}</td>
-                            <td>{r.execute_percentage}</td>
+        <>
+            <section className="card">
+                <h1>Alignment History</h1>
+                <div className="muted" style={{ marginTop: 6 }}>
+                    Review your recent assessments. Filters and sorting are shareable via URL.
+                </div>
+            </section>
+
+            <section className="card" style={{ padding: 0, overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+                    <thead>
+                        <tr>
+                            <Th>Date</Th>
+                            <Th align="center">Activate</Th>
+                            <Th align="center">Build</Th>
+                            <Th align="center">Leverage</Th>
+                            <Th align="center">Execute</Th>
+                            <Th align="right">Actions</Th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
-        </section>
+                    </thead>
+                    <tbody>
+                        {list.map((r, i) => {
+                            const id = String(r.id);
+                            return (
+                                <tr key={id} style={{ borderTop: i === 0 ? "none" : "1px solid var(--border)" }}>
+                                    <Td>{fmtDateTime(r.submission_date)}</Td>
+                                    <Td align="center">{fmtPct(r.activate_percentage)}</Td>
+                                    <Td align="center">{fmtPct(r.build_percentage)}</Td>
+                                    <Td align="center">{fmtPct(r.leverage_percentage)}</Td>
+                                    <Td align="center">{fmtPct(r.execute_percentage)}</Td>
+                                    <Td align="right">
+                                        <a className="btn btn-ghost" href={`/assessment/details?id=${encodeURIComponent(id)}`}>View</a>
+                                    </Td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </section>
+
+            <section className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="muted">
+                    Showing <strong>{list.length}</strong> of <strong>{totalCount}</strong> • Page <strong>{current}</strong> / {lastPage}
+                </div>
+                <div className="hstack" style={{ gap: 8 }}>
+                    <Pager dir="prev" page={current} last={lastPage} />
+                    <Pager dir="next" page={current} last={lastPage} />
+                </div>
+            </section>
+        </>
     );
 }
 
+/* ---------- helpers ---------- */
+function str(v?: string | string[] | null) {
+    if (!v) return undefined;
+    return Array.isArray(v) ? v[0] : v;
+}
+function fmtPct(v: number | string | null | undefined) {
+    if (v === null || v === undefined) return "—";
+    const n = typeof v === "string" ? Number(v) : v;
+    return Number.isFinite(n) ? `${Math.round(n)}%` : "—";
+}
+function fmtDateTime(iso?: string | null) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+        month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+}
+function Th({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "center" | "right" }) {
+    return <th style={{ textAlign: align, padding: "12px 16px", color: "var(--muted)" }}>{children}</th>;
+}
+function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "center" | "right" }) {
+    return <td style={{ textAlign: align, padding: "12px 16px" }}>{children}</td>;
+}
+function Pager({ dir, page, last }: { dir: "prev" | "next"; page: number; last: number }) {
+    const disabled = (dir === "prev" && page <= 1) || (dir === "next" && page >= last);
+    const href = buildHref(dir, page);
+    return (
+        <a className="btn btn-ghost" aria-disabled={disabled} href={disabled ? "#" : href} onClick={(e) => disabled && e.preventDefault()}>
+            {dir === "prev" ? "← Previous" : "Next →"}
+        </a>
+    );
+}
+function buildHref(dir: "prev" | "next", page: number) {
+    if (typeof window === "undefined") return "#";
+    const params = new URLSearchParams(window.location.search);
+    params.set("page", String(dir === "prev" ? page - 1 : page + 1));
+    return `?${params.toString()}`;
+}
