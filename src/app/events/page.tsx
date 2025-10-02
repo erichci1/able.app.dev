@@ -12,18 +12,26 @@ type EventRow = {
     meet_url?: string | null;
     calendar_url?: string | null;
 };
+type SP = Record<string, string | string[] | undefined>;
+const s = (v?: string | string[] | undefined) => (v == null ? undefined : Array.isArray(v) ? v[0] : v);
+
+function fmtDate(iso?: string | null) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
 
 export default async function EventsPage({
     searchParams,
 }: {
-    searchParams?: Record<string, string | string[] | undefined>;
+    searchParams?: Promise<SP>;
 }) {
+    const sp: SP = (await searchParams) ?? {};
+    const view = s(sp.view) ?? "upcoming"; // upcoming | past | all
+    const type = s(sp.type) ?? "all";
+    const qtxt = s(sp.q) ?? "";
+
     const supabase = supabaseServer();
-
-    const view = (Array.isArray(searchParams?.view) ? searchParams?.view[0] : searchParams?.view) ?? "upcoming";
-    const type = (Array.isArray(searchParams?.type) ? searchParams?.type[0] : searchParams?.type) ?? "all";
-    const qtxt = (Array.isArray(searchParams?.q) ? searchParams?.q[0] : searchParams?.q) ?? "";
-
     const nowIso = new Date().toISOString();
 
     let q = supabase
@@ -63,7 +71,7 @@ export default async function EventsPage({
                 </div>
             ) : (
                 <ul style={{ marginTop: 8 }}>
-                    {rows.map((ev: EventRow) => (
+                    {rows.map((ev) => (
                         <li key={ev.id}>
                             <strong>{ev.title || "Untitled event"}</strong> — {fmtDate(ev.start_at)}
                             {ev.location ? ` • ${ev.location}` : ev.venue ? ` • ${ev.venue}` : ""}
@@ -74,10 +82,4 @@ export default async function EventsPage({
             )}
         </section>
     );
-}
-
-function fmtDate(iso?: string | null) {
-    if (!iso) return "";
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }

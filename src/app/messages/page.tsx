@@ -1,95 +1,92 @@
+// File: src/app/messages/page.tsx
 import Link from "next/link";
-import ExploreMenuServer from "@/components/ExploreMenuServer";
 import { supabaseServer } from "@/lib/supabase/server";
 
+type MessageRow = {
+    id: string;
+    subject: string | null;
+    sender: string | null;
+    created_at: string | null;
+    is_read?: boolean | null;
+};
+
+type SP = Record<string, string | string[] | undefined>;
+const s = (v?: string | string[] | undefined) =>
+    v == null ? undefined : Array.isArray(v) ? v[0] : v;
+
+function fmtDate(iso?: string | null) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleString(undefined, {
+        month: "short",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
 export default async function MessagesPage({
-searchParams,
-}: { searchParams?: Record<string, string | string[] | undefined> }) {
-const orderParam = str(searchParams?.order) ?? "new";
-const statusParam = str(searchParams?.status) ?? "all";
-const qParam = str(searchParams?.q) ?? "";
-const ascending = orderParam === "old";
+    searchParams,
+}: {
+    searchParams?: Promise<SP>;
+}) {
+    // ✅ normalize Promise<SP> to object
+    const sp: SP = (await searchParams) ?? {};
+    const filter = s(sp.filter) ?? "all"; // all | unread | read
+    const qtxt = s(sp.q) ?? "";
 
-const supabase = supabaseServer();
-const { data: { user } } = await supabase.auth.getUser();
+    const supabase = supabaseServer();
+    let q = supabase
+        .from("messages")
+        .select("id, subject, sender, created_at, is_read")
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-if (!user) {
-return (
-<>
-<ExploreMenuServer />
-<section className="card">
-<h1>Messages</h1>
-<div className="muted" style={{ marginTop: 6 }}>Please sign in to view your inbox.</div>
-</section>
-</>
-);
+    if (filter === "unread") q = q.eq("is_read", false);
+    if (filter === "read") q = q.eq("is_read", true);
+
+    if (qtxt) {
+        const like = `%${qtxt.replace(/%/g, "\\%").replace(/_/g, "\\_")}%`;
+        q = q.or(`subject.ilike.${like},sender.ilike.${like}`);
+    }
+
+    const { data, error } = await q;
+
+    if (error) {
+        return (
+            <section className="card">
+                <h1>Messages</h1>
+                <div style={{ color: "#991b1b" }}>{error.message}</div>
+            </section>
+        );
+    }
+
+    const rows: MessageRow[] = data ?? [];
+
+    return (
+        <section className="card">
+            <h1>Messages</h1>
+            {!rows.length ? (
+                <div className="muted" style={{ marginTop: 6 }}>
+                    {filter === "unread"
+                        ? "No unread messages."
+                        : filter === "read"
+                            ? "No read messages."
+                            : "No messages yet."}
+                </div>
+            ) : (
+                <ul style={{ marginTop: 8 }}>
+                    {rows.map((m) => (
+                        <li key={m.id} style={{ marginBottom: 6 }}>
+                            <Link href={`/message?id=${m.id}`}>
+                                <strong>{m.subject || "(no subject)"}</strong>
+                            </Link>{" "}
+                            — {m.sender ?? "Unknown"} • {fmtDate(m.created_at)}
+                            {m.is_read ? "" : " • Unread"}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
 }
-
-let query = supabase
-.from("messages")
-.select("id, subject, body, sender_name, created_at, read_at")
-.eq("recipient_id", user.id);
-
-if (statusParam === "unread") query = query.is("read_at", null);
-else if (statusParam === "read") query = query.not("read_at", "is", null);
-
-if (qParam) {
-const like = `%${qParam.replace(/%/g,"\\%").replace(/_/g,"\\_")}%`;
-query = query.or(`subject.ilike.${like},body.ilike.${like}`);
-}
-
-query = query.order("created_at", { ascending }).limit(100);
-
-const { data, error } = await query;
-const msgs = data ?? [];
-
-return (
-<>
-<ExploreMenuServer />
-
-<section className="card">
-<h1>Messages</h1>
-<div className="muted" style={{ marginTop: 6 }}>
-Sort, filter and search your inbox. The URL updates so you can share the view.
-</div>
-</section>
-
-{/* (If you added MessagesFilterBar, render it here) */}
-
-{error ? (
-<section className="card"><div style={{ color: "#991b1b" }}>{error.message}</div></section>
-) : !msgs.length ? (
-<section className="card"><div className="muted">No messages.</div></section>
-) : (
-<section className="card" style={{ padding: 0 }}>
-<ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-{msgs.map((m) => (
-<li key={m.id} style={{
-padding: 16, borderBottom: "1px solid var(--border)",
-display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center",
-background: !m.read_at ? "#f9fafb" : "transparent",
-}}>
-<div>
-<div style={{ fontWeight: 900 }}>{m.subject || "(no subject)"}</div>
-<div className="muted" style={{ marginTop: 4 }}>
-From {m.sender_name || "Coach"} • {fmtDate(m.created_at)}{!m.read_at ? " • Unread" : ""}
-</div>
-{m.body && (
-<div className="muted" style={{ marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-{m.body}
-</div>
-)}
-</div>
-<Link className="btn btn-ghost" href={`/message?id=${encodeURIComponent(m.id)}`}>Open</Link>
-</li>
-))}
-</ul>
-</section>
-)}
-</>
-);
-}
-
-function str(v?: string | string[] | null) { if (!v) return undefined; return Array.isArray(v) ? v[0] : v; }
-function fmtDate(iso?: string | null) { if (!iso) return ""; const d = new Date(iso);
-return d.toLocaleString(undefined, { month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit" }); }

@@ -10,26 +10,32 @@ type AssessRow = {
     execute_percentage: number | string | null;
 };
 
+type SP = Record<string, string | string[] | undefined>;
+
 function toISODateEndOfDay(d: string) {
     const end = new Date(d);
     end.setHours(23, 59, 59, 999);
     return end.toISOString();
 }
+function s(v?: string | string[] | undefined) {
+    if (v == null) return undefined;
+    return Array.isArray(v) ? v[0] : v;
+}
 
 export default async function AssessmentHistoryPage({
     searchParams,
 }: {
-    searchParams?: Record<string, string | string[] | undefined>;
+    // ✅ Next 15 compatible: may be a Promise at render/build time
+    searchParams?: Promise<SP>;
 }) {
-    const supabase = supabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return <section className="card">Please sign in.</section>;
+    // normalize to plain object
+    const sp: SP = (await searchParams) ?? {};
 
-    const orderParam = str(searchParams?.order) ?? "new"; // new|old
-    const fromParam = str(searchParams?.from) ?? "";
-    const toParam = str(searchParams?.to) ?? "";
-    const pageParam = Number(str(searchParams?.page) ?? "1") || 1;
-    const sizeParam = Number(str(searchParams?.size) ?? "10") || 10;
+    const orderParam = s(sp.order) ?? "new"; // new|old
+    const fromParam = s(sp.from) ?? "";
+    const toParam = s(sp.to) ?? "";
+    const pageParam = Number(s(sp.page) ?? "1") || 1;
+    const sizeParam = Number(s(sp.size) ?? "10") || 10;
 
     const ascending = orderParam === "old";
     const page = Math.max(1, pageParam);
@@ -37,7 +43,11 @@ export default async function AssessmentHistoryPage({
     const fromIdx = (page - 1) * size;
     const toIdx = fromIdx + size - 1;
 
-    // COUNT
+    const supabase = supabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return <section className="card">Please sign in.</section>;
+
+    // ----- COUNT (build inline: shallow inference)
     let countQ = supabase
         .from("assessment_results_2")
         .select("id", { head: true, count: "exact" })
@@ -52,7 +62,7 @@ export default async function AssessmentHistoryPage({
     const lastPage = Math.max(1, Math.ceil(totalCount / size));
     const current = Math.min(page, lastPage);
 
-    // PAGE ROWS
+    // ----- ROWS (same shallow pattern)
     let rowsQ = supabase
         .from("assessment_results_2")
         .select(`
@@ -136,11 +146,37 @@ execute_percentage
     );
 }
 
-/* helpers */
-function str(v?: string | string[] | null) { if (!v) return undefined; return Array.isArray(v) ? v[0] : v; }
-function fmtPct(v: number | string | null | undefined) { if (v == null) return "—"; const n = typeof v === "string" ? Number(v) : v; return Number.isFinite(n) ? `${Math.round(n)}%` : "—"; }
-function fmtDateTime(iso?: string | null) { if (!iso) return "—"; const d = new Date(iso); return d.toLocaleString(undefined, { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
-function Th({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "center" | "right" }) { return <th style={{ textAlign: align, padding: "12px 16px", color: "var(--muted)" }}>{children}</th>; }
-function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "center" | "right" }) { return <td style={{ textAlign: align, padding: "12px 16px" }}>{children}</td>; }
-function Pager({ dir, page, last }: { dir: "prev" | "next"; page: number; last: number }) { const disabled = (dir === "prev" && page <= 1) || (dir === "next" && page >= last); const href = buildHref(dir, page); return (<a className="btn btn-ghost" aria-disabled={disabled} href={disabled ? "#" : href} onClick={(e) => disabled && e.preventDefault()}>{dir === "prev" ? "← Previous" : "Next →"}</a>); }
-function buildHref(dir: "prev" | "next", page: number) { if (typeof window === "undefined") return "#"; const params = new URLSearchParams(window.location.search); params.set("page", String(dir === "prev" ? page - 1 : page + 1)); return `?${params.toString()}`; }
+/* ---- helpers ---- */
+function fmtPct(v: number | string | null | undefined) {
+    if (v == null) return "—";
+    const n = typeof v === "string" ? Number(v) : v;
+    return Number.isFinite(n) ? `${Math.round(n)}%` : "—";
+}
+function fmtDateTime(iso?: string | null) {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+        month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+}
+function Th({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "center" | "right" }) {
+    return <th style={{ textAlign: align, padding: "12px 16px", color: "var(--muted)" }}>{children}</th>;
+}
+function Td({ children, align = "left" }: { children: React.ReactNode; align?: "left" | "center" | "right" }) {
+    return <td style={{ textAlign: align, padding: "12px 16px" }}>{children}</td>;
+}
+function Pager({ dir, page, last }: { dir: "prev" | "next"; page: number; last: number }) {
+    const disabled = (dir === "prev" && page <= 1) || (dir === "next" && page >= last);
+    const href = buildHref(dir, page);
+    return (
+        <a className="btn btn-ghost" aria-disabled={disabled} href={disabled ? "#" : href} onClick={(e) => disabled && e.preventDefault()}>
+            {dir === "prev" ? "← Previous" : "Next →"}
+        </a>
+    );
+}
+function buildHref(dir: "prev" | "next", page: number) {
+    if (typeof window === "undefined") return "#";
+    const params = new URLSearchParams(window.location.search);
+    params.set("page", String(dir === "prev" ? page - 1 : page + 1));
+    return `?${params.toString()}`;
+}

@@ -1,3 +1,4 @@
+// File: src/app/resources/page.tsx
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -10,22 +11,26 @@ type ResourceRow = {
     category?: string | null;
     phase?: string | null;
 };
+type SP = Record<string, string | string[] | undefined>;
+const s = (v?: string | string[] | undefined) => (v == null ? undefined : Array.isArray(v) ? v[0] : v);
+
+function fmtDate(iso?: string | null) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" });
+}
 
 export default async function ResourcesPage({
     searchParams,
 }: {
-    searchParams?: Record<string, string | string[] | undefined>;
+    searchParams?: Promise<SP>;
 }) {
-    const supabase = supabaseServer();
-
-    const order = (Array.isArray(searchParams?.order) ? searchParams?.order[0] : searchParams?.order) ?? "new";
-    const type = (Array.isArray(searchParams?.type) ? searchParams?.type[0] : searchParams?.type) ?? "all"; // category filter
-    const qtxt = (Array.isArray(searchParams?.q) ? searchParams?.q[0] : searchParams?.q) ?? "";
+    const sp: SP = (await searchParams) ?? {};
+    const order = s(sp.order) ?? "new"; // new|old
+    const type = s(sp.type) ?? "all"; // category
+    const qtxt = s(sp.q) ?? "";
 
     const ascending = order === "old";
-
-    // fetch categories for UI if you need them (not required for query)
-    // const { data: catRows } = await supabase.from("resources").select("category").not("category","is",null);
+    const supabase = supabaseServer();
 
     let q = supabase
         .from("resources")
@@ -41,26 +46,39 @@ export default async function ResourcesPage({
     }
 
     const { data, error } = await q;
-    if (error) return <section className="card"><h1>Resources</h1><div style={{ color: "#991b1b" }}>{error.message}</div></section>;
+    if (error) {
+        return (
+            <section className="card">
+                <h1>Resources</h1>
+                <div style={{ color: "#991b1b" }}>{error.message}</div>
+            </section>
+        );
+    }
 
     const rows: ResourceRow[] = data ?? [];
 
     return (
         <section className="card">
             <h1>Resources</h1>
-            <ul>
-                {rows.map(r => (
-                    <li key={r.id}>
-                        <strong>{r.title}</strong> — {fmtDate(r.created_at)} {r.category ? `• ${r.category}` : ""}
-                        {r.url && <> — <Link href={r.url} target="_blank">Open</Link></>}
-                    </li>
-                ))}
-            </ul>
+            {!rows.length ? (
+                <div className="muted" style={{ marginTop: 6 }}>
+                    {type === "all" ? "No resources yet." : `No resources for ${type} yet.`}
+                </div>
+            ) : (
+                <ul>
+                    {rows.map((r) => (
+                        <li key={r.id}>
+                            <strong>{r.title}</strong> — {fmtDate(r.created_at)} {r.category ? `• ${r.category}` : ""}
+                            {r.url && (
+                                <>
+                                    {" "}
+                                    — <Link href={r.url} target="_blank">Open</Link>
+                                </>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
         </section>
     );
-}
-
-function fmtDate(iso?: string | null) {
-    if (!iso) return "";
-    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "2-digit", year: "numeric" });
 }

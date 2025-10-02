@@ -10,14 +10,18 @@ type VideoRow = {
     phase?: string | null;
     created_at: string | null;
 };
+type SP = Record<string, string | string[] | undefined>;
+const s = (v?: string | string[] | undefined) => (v == null ? undefined : Array.isArray(v) ? v[0] : v);
 
 export default async function VideosPage({
     searchParams,
 }: {
-    searchParams?: Record<string, string | string[] | undefined>;
+    searchParams?: Promise<SP>;
 }) {
+    const sp: SP = (await searchParams) ?? {};
+    const phase = (s(sp.phase) as Phase) ?? "all";
+
     const supabase = supabaseServer();
-    const phase = (Array.isArray(searchParams?.phase) ? searchParams?.phase[0] : searchParams?.phase) as Phase ?? "all";
 
     let q = supabase
         .from("videos")
@@ -28,13 +32,26 @@ export default async function VideosPage({
     if (phase !== "all") q = q.eq("phase", phase);
 
     const { data, error } = await q;
-    if (error) return <section className="card"><h1>Video</h1><div style={{ color: "#991b1b" }}>{error.message}</div></section>;
+    if (error) {
+        return (
+            <section className="card">
+                <h1>Video</h1>
+                <div style={{ color: "#991b1b" }}>{error.message}</div>
+            </section>
+        );
+    }
 
     const rows: VideoRow[] = data ?? [];
     return (
         <section className="card">
             <h1>Video</h1>
-            <ul>{rows.map(r => <li key={r.id}>{r.title}</li>)}</ul>
+            {!rows.length ? (
+                <div className="muted" style={{ marginTop: 6 }}>
+                    {phase === "all" ? "No videos yet." : `No ${phase} videos yet.`}
+                </div>
+            ) : (
+                <ul>{rows.map((r) => <li key={r.id}>{r.title}</li>)}</ul>
+            )}
         </section>
     );
 }
