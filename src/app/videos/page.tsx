@@ -1,3 +1,4 @@
+// File: src/app/videos/page.tsx
 import { supabaseServer } from "@/lib/supabase/server";
 
 type Phase = "all" | "activate" | "build" | "leverage" | "execute";
@@ -33,9 +34,7 @@ export default async function VideosPage({
     return (
         <section className="card">
             <h1>Video</h1>
-            <ul>
-                {rows.map(r => <li key={r.id}>{r.title}</li>)}
-            </ul>
+            <ul>{rows.map(r => <li key={r.id}>{r.title}</li>)}</ul>
         </section>
     );
 }

@@ -1,4 +1,17 @@
+// File: src/app/events/page.tsx
 import { supabaseServer } from "@/lib/supabase/server";
+
+type EventRow = {
+    id: string;
+    title: string | null;
+    event_type: string | null;
+    start_at: string | null;
+    end_at: string | null;
+    location?: string | null;
+    venue?: string | null;
+    meet_url?: string | null;
+    calendar_url?: string | null;
+};
 
 export default async function EventsPage({
     searchParams,
@@ -30,19 +43,35 @@ export default async function EventsPage({
     }
 
     const { data, error } = await q;
-    if (error) return <section className="card"><h1>Events</h1><div style={{ color: "#991b1b" }}>{error.message}</div></section>;
+    if (error) {
+        return (
+            <section className="card">
+                <h1>Events</h1>
+                <div style={{ color: "#991b1b" }}>{error.message}</div>
+            </section>
+        );
+    }
 
-    const rows = data ?? [];
+    const rows: EventRow[] = data ?? [];
+
     return (
         <section className="card">
             <h1>Events</h1>
-            <ul>
-                {rows.map((ev: any) => (
-                    <li key={ev.id}>
-                        {ev.title} — {fmtDate(ev.start_at)}
-                    </li>
-                ))}
-            </ul>
+            {!rows.length ? (
+                <div className="muted" style={{ marginTop: 6 }}>
+                    {view === "upcoming" ? "No upcoming events." : "No events found."}
+                </div>
+            ) : (
+                <ul style={{ marginTop: 8 }}>
+                    {rows.map((ev: EventRow) => (
+                        <li key={ev.id}>
+                            <strong>{ev.title || "Untitled event"}</strong> — {fmtDate(ev.start_at)}
+                            {ev.location ? ` • ${ev.location}` : ev.venue ? ` • ${ev.venue}` : ""}
+                            {ev.event_type ? ` • ${ev.event_type}` : ""}
+                        </li>
+                    ))}
+                </ul>
+            )}
         </section>
     );
 }

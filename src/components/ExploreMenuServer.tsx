@@ -1,3 +1,4 @@
+// File: src/components/ExploreMenuServer.tsx
 import ExploreMenu, { ExploreCounts } from "@/components/ExploreMenu";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -10,7 +11,7 @@ export default async function ExploreMenuServer() {
   const seenMap = new Map<string, string>();
   (seenRows ?? []).forEach(r => seenMap.set(r.kind, r.last_seen_at));
 
-  async function countNew(kind: "video" | "audio" | "challenge", table: string) {
+  async function countNew(kind: "video" | "audio" | "challenge", table: "videos" | "audio" | "challenges") {
     const lastSeen = seenMap.get(kind);
     let q = supabase.from(table).select("id", { head: true, count: "exact" });
     if (lastSeen) q = q.gt("created_at", lastSeen);
@@ -26,4 +27,3 @@ export default async function ExploreMenuServer() {
 
   return <ExploreMenu counts={counts} />;
 }
-

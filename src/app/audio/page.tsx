@@ -1,3 +1,4 @@
+// File: src/app/audio/page.tsx
 import { supabaseServer } from "@/lib/supabase/server";
 
 type Phase = "all" | "activate" | "build" | "leverage" | "execute";
@@ -33,9 +34,8 @@ export default async function AudioPage({
     return (
         <section className="card">
             <h1>Audio</h1>
-            <ul>
-                {rows.map(r => <li key={r.id}>{r.title}</li>)}
-            </ul>
+            <ul>{rows.map(r => <li key={r.id}>{r.title}</li>)}</ul>
         </section>
     );
 }
+
