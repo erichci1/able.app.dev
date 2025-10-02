@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start -p $POST",
-    "lint": "next lint"
+    "build": "next build", 
+    "start": "next start -p $PORT", 
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit" 
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
