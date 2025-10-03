@@ -4,16 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build", 
-    "start": "next start -p $PORT", 
+    "build": "next build",
+    "start": "next start -p $PORT",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit" 
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.58.0",
     "git": "^0.1.5",
+    "lightningcss": "^1.30.2",
     "next": "^15.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
