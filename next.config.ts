@@ -1,10 +1,11 @@
-// next.config.ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
     output: "standalone",
     images: { remotePatterns: [{ protocol: "https", hostname: "**" }] },
-    // eslint: { ignoreDuringBuilds: true }, // (optional)
+    experimental: {
+        optimizeCss: false, // ⛔ disable LightningCSS optimizer
+    },
 };
 
 export default nextConfig;
