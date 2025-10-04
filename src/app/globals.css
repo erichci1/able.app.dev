@@ -1,59 +1,219 @@
-:root{
+:root {
   --font: var(--font-sans), system-ui, -apple-system, Segoe UI, Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --container: 1040px; --radius: 14px; --r2: 10px; --space: 16px;
-  --bg-header: #0b1220; --bg-page: #f6f7fb; --card: #ffffff; --text: #0f172a;
-  --muted: #667085; --brand: #0c2d6f; --brand-contrast: #ffffff;
-  --border: rgba(16,24,40,0.08);
-  --shadow: 0 1px 2px rgba(16,24,40,.06), 0 12px 24px rgba(16,24,40,.06);
-  --tab-underline: rgba(255,255,255,.85);
+  --container: 1040px;
+  --radius: 14px;
+  --r2: 10px;
+  --space: 16px;
+  --bg-header: #0b1220;
+  --bg-page: #f6f7fb;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #667085;
+  --brand: #0c2d6f;
+  --brand-contrast: #ffffff;
+  --border: rgba(16, 24, 40, 0.08);
+  --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 12px 24px rgba(16, 24, 40, .06);
+  --tab-underline: rgba(255, 255, 255, .85);
 
 }
 
-*{ box-sizing:border-box } html,body{ margin:0; padding:0 }
-body{ font-family: var(--font); background: var(--bg-page); color: var(--text); }
-a{ color: inherit; }
-.container{ max-width: var(--container); margin: 24px auto; padding: 0 var(--space); }
-.card{ background: var(--card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:var(--space); margin-bottom:var(--space) }
+* {
+  box-sizing: border-box
+}
 
-.hstack{ display:flex; gap:12px; align-items:center } .vstack{ display:grid; gap:12px } .muted{ color: var(--muted) }
+html,
+body {
+  margin: 0;
+  padding: 0
+}
 
-.btn{ display:inline-block; padding:10px 14px; border-radius:var(--r2); font-weight:800; text-decoration:none }
+body {
+  font-family: var(--font);
+  background: var(--bg-page);
+  color: var(--text);
+}
 
-.btn-primary{ background:var(--brand); color:var(--brand-contrast); border:1px solid rgba(16,24,40,.24) }
+a {
+  color: inherit;
+}
 
-.btn-ghost{ background:#f2f4f7; color:#101828; border:1px solid rgba(16,24,40,.24) }
+.container {
+  max-width: var(--container);
+  margin: 24px auto;
+  padding: 0 var(--space);
+}
 
-h1,h2,h3{ margin:0; font-weight:900 } h1{ font-size:28px } h2{ font-size:20px }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space);
+  margin-bottom: var(--space)
+}
+
+.hstack {
+  display: flex;
+  gap: 12px;
+  align-items: center
+}
+
+.vstack {
+  display: grid;
+  gap: 12px
+}
+
+.muted {
+  color: var(--muted)
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: var(--r2);
+  font-weight: 800;
+  text-decoration: none
+}
+
+.btn-primary {
+  background: var(--brand);
+  color: var(--brand-contrast);
+  border: 1px solid rgba(16, 24, 40, .24)
+}
+
+.btn-ghost {
+  background: #f2f4f7;
+  color: #101828;
+  border: 1px solid rgba(16, 24, 40, .24)
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 900
+}
+
+h1 {
+  font-size: 28px
+}
+
+h2 {
+  font-size: 20px
+}
 
 /* header */
 
-.site-header{ position:sticky; top:0; z-index:50; background:linear-gradient(180deg, rgba(11,18,32,.96), rgba(11,18,32,.92)); backdrop-filter:saturate(140%) blur(8px); border-bottom:1px solid rgba(148,163,184,.22); color:#fff }
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: linear-gradient(180deg, rgba(11, 18, 32, .96), rgba(11, 18, 32, .92));
+  backdrop-filter: saturate(140%) blur(8px);
+  border-bottom: 1px solid rgba(148, 163, 184, .22);
+  color: #fff
+}
 
-.navbar{ display:flex; gap:20px; align-items:center; max-width:var(--container); margin:0 auto; padding:10px 0 }
+.navbar {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 10px 0
+}
 
-.nav-spacer{ flex:1 }
+.nav-spacer {
+  flex: 1
+}
 
 /* tabs */
 
-.tabs{ display:flex; gap:18px; justify-content:center; border-bottom:1px solid rgba(148,163,184,.18); padding:8px 0 }
+.tabs {
+  display: flex;
+  gap: 18px;
+  justify-content: center;
+  border-bottom: 1px solid rgba(148, 163, 184, .18);
+  padding: 8px 0
+}
 
-.tab{ position:relative; color:rgba(255,255,255,.85); text-decoration:none; font-weight:600; padding:6px 2px }
+.tab {
+  position: relative;
+  color: rgba(255, 255, 255, .85);
+  text-decoration: none;
+  font-weight: 600;
+  padding: 6px 2px
+}
 
-.tab:hover{ color:#fff }
+.tab:hover {
+  color: #fff
+}
 
-.tab.active::after{ content:""; position:absolute; left:0; right:0; bottom:-8px; height:2px; background:var(--tab-underline); border-radius:999px }
+.tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 2px;
+  background: var(--tab-underline);
+  border-radius: 999px
+}
 
 /* focus */
 
-a:focus-visible, button:focus-visible { outline:2px solid #93c5fd; outline-offset:2px; border-radius:6px }
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+  border-radius: 6px
+}
 
 /* badge */
 
-.badge{ display:inline-flex; min-width:18px; height:18px; padding:0 6px; align-items:center; justify-content:center; font-size:11px; font-weight:800; line-height:1; color:#fff; background:#ef4444; border:1px solid rgba(0,0,0,.15); border-radius:999px }
+.badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: #ef4444;
+  border: 1px solid rgba(0, 0, 0, .15);
+  border-radius: 999px
+}
 
-.badge{ display:inline-flex; min-width:18px; height:18px; padding:0 6px; align-items:center; justify-content:center; font-size:11px; font-weight:800; line-height:1; color:#fff; background:#ef4444; border:1px solid rgba(0,0,0,.15); border-radius:999px }
+.badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  background: #ef4444;
+  border: 1px solid rgba(0, 0, 0, .15);
+  border-radius: 999px
+}
 
-/* tailwind */
+
+
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+/* existing variables */
+:root {
+  --border: #e5e7eb;
+  --muted: #64748b;
+  --radius: 12px;
+}
