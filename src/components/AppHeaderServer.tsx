@@ -1,5 +1,5 @@
 // src/components/AppHeaderServer.tsx
-import AppHeader from "@/components/AppHeader";
+import AppHeader from "../components/AppHeader";
 import { supabaseServer } from "../lib/supabase/server";
 
 /**

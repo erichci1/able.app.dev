@@ -1,6 +1,6 @@
 // File: src/components/dashboard/MessagesPreviewCard.tsx
 import Link from "next/link";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../../lib/supabase/server";
 
 export default async function MessagesPreviewCard() {
 const supabase = supabaseServer();
