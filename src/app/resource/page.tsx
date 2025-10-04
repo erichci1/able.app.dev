@@ -1,6 +1,6 @@
 // File: src/app/resource/page.tsx
 import Link from "next/link";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../../lib/supabase/server";
 
 type SP = Record<string, string | string[] | undefined>;
 const s = (v?: string | string[] | undefined) =>

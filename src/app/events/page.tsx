@@ -1,5 +1,5 @@
 // File: src/app/events/page.tsx
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../../lib/supabase/server";
 
 type EventRow = {
     id: string;

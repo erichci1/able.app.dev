@@ -1,5 +1,5 @@
 // File: src/app/event/page.tsx
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../../lib/supabase/server";
 import Image from "next/image";
 
 type EventRow = {

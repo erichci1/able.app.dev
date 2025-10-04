@@ -1,5 +1,5 @@
 // File: src/app/videos/page.tsx
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../../lib/supabase/server";
 
 type Phase = "all" | "activate" | "build" | "leverage" | "execute";
 type VideoRow = {

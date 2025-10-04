@@ -1,6 +1,6 @@
 // File: src/app/dashboard/page.tsx
-import ExploreMenuServer from "@/components/ExploreMenuServer";
-import { supabaseServer } from "@/lib/supabase/server";
+import ExploreMenuServer from "../../components/ExploreMenuServer";
+import { supabaseServer } from "../../lib/supabase/server";
 
 // Dashboard cards (be sure these exist at these paths)
 // If you don't have one yet, comment it out temporarily.

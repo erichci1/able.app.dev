@@ -1,6 +1,6 @@
 // File: src/app/resources/page.tsx
 import Link from "next/link";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../../lib/supabase/server";
 
 type ResourceRow = {
     id: string;
