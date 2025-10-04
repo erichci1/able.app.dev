@@ -1,7 +1,7 @@
 // File: src/components/dashboard/AssessmentCard.tsx
 import Link from "next/link";
 import { supabaseServer } from "../../lib/supabase/server";
-import AbleDonuts, { type AssessmentValues } from "@/components/AbleDonuts";
+import AbleDonuts, { type AssessmentValues } from "../../components/AbleDonuts";
 
 type Props = {
 userId: string;
