@@ -1,10 +1,11 @@
-// next.config.ts
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+// File: next.config.mjs
+/** @type {import('next').NextConfig} */
+const nextConfig = {
     output: "standalone",
     images: { remotePatterns: [{ protocol: "https", hostname: "**" }] },
-    // eslint: { ignoreDuringBuilds: true }, // (optional)
+
+    // If you chose to disable LightningCSS earlier:
+    // experimental: { optimizeCss: false },
 };
 
 export default nextConfig;
