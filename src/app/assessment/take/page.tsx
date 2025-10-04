@@ -1,7 +1,7 @@
 // src/app/assessment/take/page.tsx
-import ExploreMenuServer from "@/components/ExploreMenuServer";
-import { supabaseServer } from '@/lib/supabase/server';
-import TakeAssessmentRedirectBridge from "@/components/TakeAssessmentRedirectBridge";
+import ExploreMenuServer from "../../../components/ExploreMenuServer";
+import { supabaseServer } from "../../../lib/supabase/server";
+import TakeAssessmentRedirectBridge from "../../../components/TakeAssessmentRedirectBridge";
 
 const JOTFORM = 'https://form.jotform.com/250324703797157';
 

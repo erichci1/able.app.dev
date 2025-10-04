@@ -1,5 +1,5 @@
 // File: src/app/assessment/history/page.tsx
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../../../lib/supabase/server";
 
 type AssessRow = {
     id: string;
