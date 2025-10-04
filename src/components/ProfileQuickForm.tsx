@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { supabaseClient } from "@/lib/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 
 type Props = {
     initialFirstName?: string | null;
@@ -196,4 +196,9 @@ export default function ProfileQuickForm({
             </form>
         </div>
     );
+}
+function supabaseClient() {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    return createClient(supabaseUrl, supabaseAnonKey);
 }
