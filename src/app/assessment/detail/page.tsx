@@ -1,6 +1,7 @@
 // File: src/app/assessment/detail/page.tsx
 import { supabaseServer } from "@/lib/supabase/server";
 
+
 type SP = Record<string, string | string[] | undefined>;
 
 export default async function AssessmentDetailPage({

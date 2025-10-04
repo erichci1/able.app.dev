@@ -1,11 +1,9 @@
-// File: next.config.mjs
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     output: "standalone",
     images: { remotePatterns: [{ protocol: "https", hostname: "**" }] },
-
-    // If you chose to disable LightningCSS earlier:
-    // experimental: { optimizeCss: false },
+    experimental: {
+        optimizeCss: false, // ⛔ let PostCSS handle CSS for Tailwind v4
+    },
 };
-
 export default nextConfig;

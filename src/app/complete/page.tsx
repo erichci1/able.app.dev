@@ -4,6 +4,7 @@ import ExploreMenuServer from "@/components/ExploreMenuServer";
 import ProfileQuickForm from "@/components/ProfileQuickForm";
 import { supabaseServer } from "@/lib/supabase/server";
 
+
 type SP = Record<string, string | string[] | undefined>;
 const s = (v?: string | string[] | undefined) =>
     v == null ? undefined : Array.isArray(v) ? v[0] : v;

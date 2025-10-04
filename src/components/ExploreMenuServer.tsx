@@ -1,3 +1,4 @@
+// File: src/components/ExploreMenuServer.tsx
 export default async function ExploreMenuServer() {
   return (
     <nav className="card" style={{ display: "flex", gap: 8, padding: 12 }}>

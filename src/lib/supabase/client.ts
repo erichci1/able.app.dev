@@ -1,11 +1,15 @@
-export default async function ExploreMenuServer() {
-    return (
-        <nav className= "card" style = {{ display: "flex", gap: 8, padding: 12 }
-}>
-    <a className="btn btn-ghost" href = "/challenges" > Challenges </a>
-        < a className = "btn btn-ghost" href = "/audio" > Audio </a>
-            < a className = "btn btn-ghost" href = "/videos" > Videos </a>
-                < a className = "btn btn-ghost" href = "/resources" > Resources </a>
-                    </nav>
-);
+// File: src/lib/supabase/client.ts
+"use client";
+
+import { createBrowserClient } from "@supabase/ssr";
+
+/**
+* Browser-side Supabase client (for client components / hooks).
+* Uses NEXT_PUBLIC_* env vars.
+*/
+export function supabaseClient() {
+    return createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
 }
