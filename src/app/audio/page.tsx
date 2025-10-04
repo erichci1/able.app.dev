@@ -1,5 +1,7 @@
 // File: src/app/audio/page.tsx
-import { supabaseServer } from "@/lib/supabase/server";
+// Update the import path to the correct location of supabaseServer
+// Update the import path below to the correct location of supabaseServer
+import { supabaseServer } from "../../lib/supabase/server";
 
 type Phase = "all" | "activate" | "build" | "leverage" | "execute";
 type AudioRow = {

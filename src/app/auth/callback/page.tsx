@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../../../lib/supabase/server";
 
 type SP = Record<string, string | string[] | undefined>;
 

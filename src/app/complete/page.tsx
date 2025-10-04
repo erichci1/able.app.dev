@@ -1,8 +1,8 @@
 // File: src/app/complete/page.tsx
 import Link from "next/link";
-import ExploreMenuServer from "@/components/ExploreMenuServer";
-import ProfileQuickForm from "@/components/ProfileQuickForm";
-import { supabaseServer } from "@/lib/supabase/server";
+import ExploreMenuServer from "../../components/ExploreMenuServer";
+import ProfileQuickForm from "../../components/ProfileQuickForm";
+import { supabaseServer } from "../../lib/supabase/server";
 
 
 type SP = Record<string, string | string[] | undefined>;
