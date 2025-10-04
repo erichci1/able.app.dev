@@ -18,7 +18,7 @@ export default function SignInClient() {
 
     const getBase = () =>
         typeof window === "undefined"
-            ? process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+            ? process.env.NEXT_PUBLIC_SITE_URL || "https://app.dev.ableframework.com"
             : window.location.origin;
 
     // Already signed in? Redirect (client-only; lazy-load Supabase)
@@ -26,7 +26,7 @@ export default function SignInClient() {
         let mounted = true;
         (async () => {
             try {
-                const { supabaseClient } = await import("@/lib/supabase/client");
+                const { supabaseClient } = await import("../../../lib/supabase/client");
                 const supa = supabaseClient();
                 const { data } = await supa.auth.getUser();
                 if (mounted && data.user) router.replace("/dashboard");
@@ -39,7 +39,7 @@ export default function SignInClient() {
         e.preventDefault();
         setLoading(true); setMsg(null); setErr(null);
         try {
-            const { supabaseClient } = await import("@/lib/supabase/client");
+            const { supabaseClient } = await import("../../../lib/supabase/client");
             const supa = supabaseClient();
             const callbackUrl = `${getBase()}/auth/callback${redirectQS}`;
             const { error } = await supa.auth.signInWithOtp({
@@ -56,7 +56,7 @@ export default function SignInClient() {
     async function handleGoogle() {
         setLoading(true); setMsg(null); setErr(null);
         try {
-            const { supabaseClient } = await import("@/lib/supabase/client");
+            const { supabaseClient } = await import("../../../lib/supabase/client");
             const supa = supabaseClient();
             const callbackUrl = `${getBase()}/auth/callback${redirectQS}`;
             const { error } = await supa.auth.signInWithOAuth({
