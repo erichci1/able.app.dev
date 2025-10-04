@@ -1,6 +1,6 @@
 // File: src/components/dashboard/ResourcesPreviewCard.tsx
 import Link from "next/link";
-import { supabaseServer } from "@/lib/supabase/server";
+import { supabaseServer } from "../lib/supabase/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 const PHASES = [

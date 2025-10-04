@@ -1,5 +1,5 @@
 import "./globals.css";
-import AppHeaderServer from "@/components/AppHeaderServer";
+import AppHeaderServer from "../components/AppHeaderServer";
 import { Inter } from "next/font/google";
 
 const inter = Inter({
