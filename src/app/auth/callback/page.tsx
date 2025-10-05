@@ -1,57 +1,57 @@
 // File: src/app/auth/callback/page.tsx
 import { redirect } from "next/navigation";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { supabaseServer } from "../../../lib/supabase/server";
 
-/**
-* Handles Supabase magic link & OAuth callback
-* Creates session cookie and redirects accordingly.
-*/
+type SP = Record<string, string | string[] | undefined>;
+
 export default async function AuthCallbackPage({
     searchParams,
 }: {
-    searchParams?: Record<string, string | string[] | undefined>;
+    searchParams?: Promise<SP>;
 }) {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        { cookies: cookieStore }
-    );
+    // Normalize search params for Next 15 async typing
+    const sp: SP = (await searchParams) ?? {};
+    const code =
+        typeof sp.code === "string"
+            ? sp.code
+            : Array.isArray(sp.code)
+                ? sp.code[0]
+                : undefined;
 
-    const code = searchParams?.code as string | undefined;
-    const redirectParam = searchParams?.redirect as string | undefined;
-
+    // If no code present, redirect safely
     if (!code) {
-        console.warn("Missing auth code; redirecting to sign-in.");
         redirect("/auth/sign-in");
     }
 
-    // 🔑 Exchange the code for a valid session
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    const supabase = supabaseServer();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
-        console.error("Auth callback error:", error.message);
+        console.error("Supabase session exchange failed:", error.message);
+        redirect("/auth/sign-in?error=1");
+    }
+
+    // Fetch profile to decide where to go next
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
         redirect("/auth/sign-in");
     }
 
-    // ✅ New user → no first_name yet → send to /complete?first=1
-    // ✅ Returning user → straight to /dashboard
+    // Check if user has a first name
     const { data: profile } = await supabase
         .from("profiles")
         .select("first_name")
-        .eq("id", data.user.id)
+        .eq("id", user.id)
         .maybeSingle();
 
     if (!profile?.first_name) {
+        // New or incomplete user → Complete page
         redirect("/complete?first=1");
     }
 
-    // Optional: if a redirect param is present (from sign-in page), honor it.
-    if (redirectParam) {
-        redirect(redirectParam.startsWith("/") ? redirectParam : `/${redirectParam}`);
-    }
-
-    // Default → Dashboard
+    // Otherwise → Dashboard
     redirect("/dashboard");
 }
