@@ -1,19 +1,22 @@
-// File: src/components/ProfileQuickForm.tsx
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
+import { supabaseClient } from "../lib/supabase/client";
 
 type Props = {
     initialFirstName?: string | null;
     initialFocus?: string | null;
+    /** If provided, redirect here immediately after a successful save */
+    redirectAfterSave?: string;
 };
 
 export default function ProfileQuickForm({
     initialFirstName = "",
     initialFocus = "",
+    redirectAfterSave,
 }: Props) {
+    const router = useRouter();
     const supa = React.useMemo(() => supabaseClient(), []);
     const [firstName, setFirstName] = React.useState(initialFirstName ?? "");
     const [focus, setFocus] = React.useState(initialFocus ?? "");
@@ -21,23 +24,25 @@ export default function ProfileQuickForm({
     const [ok, setOk] = React.useState<string | null>(null);
     const [err, setErr] = React.useState<string | null>(null);
 
+    // in-place toast state if not redirecting
     const [showToast, setShowToast] = React.useState(false);
     const toastRef = React.useRef<HTMLDivElement | null>(null);
 
     React.useEffect(() => {
-        if (ok) {
+        if (ok && !redirectAfterSave) {
             setShowToast(true);
             setTimeout(() => toastRef.current?.focus(), 0);
             const t = setTimeout(() => setShowToast(false), 6000);
             return () => clearTimeout(t);
         }
-    }, [ok]);
+    }, [ok, redirectAfterSave]);
 
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         setSaving(true);
         setOk(null);
         setErr(null);
+
         try {
             const { data: u } = await supa.auth.getUser();
             if (!u.user) {
@@ -58,6 +63,13 @@ export default function ProfileQuickForm({
 
             const who = (firstName || "").trim();
             setOk(`Thanks, ${who || "you"} — you're set!`);
+
+            // If a redirect target was passed, go immediately
+            if (redirectAfterSave) {
+                // use replace so the user doesn't go back to /complete on back
+                router.replace(redirectAfterSave);
+                return;
+            }
         } catch (e: unknown) {
             setErr(e instanceof Error ? e.message : "Could not save your profile.");
         } finally {
@@ -67,7 +79,7 @@ export default function ProfileQuickForm({
 
     return (
         <div className="vstack" style={{ gap: 12 }}>
-            {/* Success toast with second CTA */}
+            {/* Success toast (only when not redirecting) */}
             {showToast && ok && (
                 <div
                     ref={toastRef}
@@ -76,74 +88,36 @@ export default function ProfileQuickForm({
                     aria-live="polite"
                     className="card"
                     style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
-                        background: "#ecfdf5",
-                        border: "1px solid rgba(5,150,105,.35)",
-                        outline: "none",
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        gap: 12, background: "#ecfdf5", border: "1px solid rgba(5,150,105,.35)",
                     }}
                 >
                     <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#065f46" }}>
-                        <span
-                            aria-hidden
-                            style={{
-                                width: 8, height: 8, borderRadius: 999,
-                                background: "#065f46",
-                                boxShadow: "0 0 0 3px rgba(5,150,105,.25)",
-                            }}
-                        />
+                        <span aria-hidden style={{
+                            width: 8, height: 8, borderRadius: 999, background: "#065f46",
+                            boxShadow: "0 0 0 3px rgba(5,150,105,.25)",
+                        }} />
                         <strong>{ok}</strong>
                     </div>
-
-                    <div className="hstack" style={{ gap: 8 }}>
-                        <Link href="/assessment/take" className="btn btn-primary" prefetch={false}>
-                            Take Alignment
-                        </Link>
-                        <button
-                            type="button"
-                            className="btn btn-ghost"
-                            onClick={() => setShowToast(false)}
-                            aria-label="Dismiss"
-                        >
-                            Dismiss
-                        </button>
-                    </div>
+                    <button type="button" className="btn btn-ghost" onClick={() => setShowToast(false)}>
+                        Dismiss
+                    </button>
                 </div>
             )}
 
-            {/* Error toast */}
             {err && (
-                <div
-                    role="alert"
-                    className="card"
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
-                        background: "#fef2f2",
-                        border: "1px solid rgba(220,38,38,.35)",
-                    }}
-                >
+                <div role="alert" className="card" style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    gap: 12, background: "#fef2f2", border: "1px solid rgba(220,38,38,.35)",
+                }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#991b1b" }}>
-                        <span
-                            aria-hidden
-                            style={{
-                                width: 8, height: 8, borderRadius: 999,
-                                background: "#991b1b",
-                                boxShadow: "0 0 0 3px rgba(220,38,38,.25)",
-                            }}
-                        />
+                        <span aria-hidden style={{
+                            width: 8, height: 8, borderRadius: 999, background: "#991b1b",
+                            boxShadow: "0 0 0 3px rgba(220,38,38,.25)",
+                        }} />
                         <strong>{err}</strong>
                     </div>
-                    <button
-                        type="button"
-                        className="btn btn-ghost"
-                        onClick={() => setErr(null)}
-                        aria-label="Dismiss error"
-                    >
+                    <button type="button" className="btn btn-ghost" onClick={() => setErr(null)}>
                         Dismiss
                     </button>
                 </div>
@@ -161,10 +135,8 @@ export default function ProfileQuickForm({
                     placeholder="e.g., Eric"
                     className="w-full"
                     style={{
-                        border: "1px solid var(--border)",
-                        borderRadius: 10,
-                        padding: "10px 12px",
-                        background: "#fff",
+                        border: "1px solid var(--border)", borderRadius: 10,
+                        padding: "10px 12px", background: "#fff",
                     }}
                 />
 
@@ -178,27 +150,15 @@ export default function ProfileQuickForm({
                     placeholder="e.g., Clarity, Leadership, Discipline"
                     className="w-full"
                     style={{
-                        border: "1px solid var(--border)",
-                        borderRadius: 10,
-                        padding: "10px 12px",
-                        background: "#fff",
+                        border: "1px solid var(--border)", borderRadius: 10,
+                        padding: "10px 12px", background: "#fff",
                     }}
                 />
 
-                <button
-                    type="submit"
-                    disabled={saving}
-                    className="btn btn-primary"
-                    style={{ marginTop: 8 }}
-                >
+                <button type="submit" disabled={saving} className="btn btn-primary" style={{ marginTop: 8 }}>
                     {saving ? "Saving…" : "Save"}
                 </button>
             </form>
         </div>
     );
-}
-function supabaseClient() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    return createClient(supabaseUrl, supabaseAnonKey);
 }
