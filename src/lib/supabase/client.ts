@@ -1,15 +1,8 @@
-// File: src/lib/supabase/client.ts
 "use client";
 
-import { createBrowserClient } from "@supabase/ssr";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-/**
-* Browser-side Supabase client (for client components / hooks).
-* Uses NEXT_PUBLIC_* env vars.
-*/
+/** Returns a Supabase client that stores PKCE + session in cookies (client side). */
 export function supabaseClient() {
-    return createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    return createClientComponentClient();
 }

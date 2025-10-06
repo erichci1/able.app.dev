@@ -1,9 +1,7 @@
-// File: src/app/auth/callback/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
-// allow safe internal redirect only
 function safeInternal(path?: string | null) {
     if (!path) return null;
     if (!path.startsWith("/")) return null;
@@ -12,41 +10,38 @@ function safeInternal(path?: string | null) {
     return path;
 }
 
-/**
-* Magic-link / OAuth callback:
-* - exchanges the 'code' for a session (writes cookie)
-* - routes new/returning users based on profile + assessments
-*/
 export async function GET(req: NextRequest) {
     const url = new URL(req.url);
-    const code = url.searchParams.get("code"); // Supabase code
-    const redirectParam = url.searchParams.get("redirect"); // optional & safe-only
+    const code = url.searchParams.get("code");
+    const redirectParam = url.searchParams.get("redirect");
+
     const supabase = createRouteHandlerClient({ cookies });
 
-    // Must have a code
     if (!code) {
         return NextResponse.redirect(new URL("/auth/sign-in?error=missing_code", url));
     }
 
-    // Exchange code → session cookie (only possible in route handler)
+    // Exchange code for session and write cookies
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
         console.error("[auth/callback] exchange error:", error.message);
+        // Supabase will also sometimes add ?error=... back to sign-in; keep ours simple.
         return NextResponse.redirect(new URL("/auth/sign-in?error=1", url));
     }
 
+    // Get the user after exchange
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         return NextResponse.redirect(new URL("/auth/sign-in?error=2", url));
     }
 
-    // Ensure profile exists (id, email)
+    // Ensure profile exists
     await supabase.from("profiles").upsert(
         { id: user.id, email: user.email ?? null },
         { onConflict: "id" }
     );
 
-    // Missing first_name → /complete?first=1
+    // If the user has no first_name, go to complete
     const { data: profile } = await supabase
         .from("profiles")
         .select("first_name")
@@ -58,22 +53,20 @@ export async function GET(req: NextRequest) {
         return NextResponse.redirect(new URL("/complete?first=1", url));
     }
 
-    // Check if any assessments exist for this user
+    // If assessments exist, allow safe redirect
     const { count } = await supabase
         .from("assessment_results_2")
         .select("id", { head: true, count: "exact" })
         .eq("user_id", user.id);
 
     const hasAssessments = (count ?? 0) > 0;
-
-    // honor redirect= only for established users, internal-only
     const safe = safeInternal(redirectParam);
+
     if (safe && hasAssessments) {
         return NextResponse.redirect(new URL(safe, url));
     }
 
     if (!hasAssessments) {
-        // let Dashboard show the welcome CTA/toast
         return NextResponse.redirect(new URL("/dashboard?first=1", url));
     }
 
