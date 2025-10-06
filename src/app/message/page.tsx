@@ -1,67 +1,53 @@
 // File: src/app/message/page.tsx
-import { supabaseServer } from "../../lib/supabase/server";
+import { supabaseServerComponent } from "../../lib/supabase/server";
 
 type SP = Record<string, string | string[] | undefined>;
+const pick = (v?: string | string[] | undefined) => v == null ? undefined : Array.isArray(v) ? v[0] : v;
 
-const s = (v?: string | string[] | undefined) =>
-    v == null ? undefined : Array.isArray(v) ? v[0] : v;
-
-export default async function MessageDetailPage({
-    searchParams,
-}: {
-    searchParams?: Promise<SP>;
-}) {
+export default async function MessageDetailPage({ searchParams }: { searchParams?: Promise<SP> }) {
     const sp: SP = (await searchParams) ?? {};
-    const id = s(sp.id);
+    const id = pick(sp.id);
 
-    if (!id) {
+    const supabase = supabaseServerComponent();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !id) {
         return (
-            <section className="card">
-                <h1>Message</h1>
-                <div className="muted" style={{ marginTop: 6 }}>
-                    No message id provided.
-                </div>
-            </section>
+            <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+                <section className="card" style={{ padding: 16 }}>
+                    <h1>Message</h1>
+                    <div className="muted" style={{ marginTop: 6 }}>No message specified or not signed in.</div>
+                </section>
+            </main>
         );
     }
 
-    const supabase = supabaseServer();
-    const { data, error } = await supabase
+    const { data: msg } = await supabase
         .from("messages")
-        .select("*")
+        .select("id,subject,body,sender_name,created_at,read_at")
         .eq("id", id)
+        .eq("recipient_id", user.id)
         .maybeSingle();
 
-    if (error) {
+    if (!msg) {
         return (
-            <section className="card">
-                <h1>Message</h1>
-                <div style={{ color: "#991b1b" }}>{error.message}</div>
-            </section>
-        );
-    }
-
-    if (!data) {
-        return (
-            <section className="card">
-                <h1>Message</h1>
-                <div className="muted">Not found.</div>
-            </section>
+            <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+                <section className="card" style={{ padding: 16 }}>
+                    <h1>Message</h1>
+                    <div className="muted" style={{ marginTop: 6 }}>Message not found.</div>
+                </section>
+            </main>
         );
     }
 
     return (
-        <section className="card">
-            <h1>{data.subject || "Message"}</h1>
-            <div className="muted" style={{ marginTop: 6 }}>
-                From: {data.sender ?? "Unknown"} •{" "}
-                {data.created_at
-                    ? new Date(data.created_at).toLocaleString()
-                    : "Unknown date"}
-            </div>
-            <div style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>
-                {data.body ?? ""}
-            </div>
-        </section>
+        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+            <section className="card" style={{ padding: 16 }}>
+                <h1>{msg.subject || "Message"}</h1>
+                <div className="muted" style={{ marginTop: 6 }}>
+                    From {msg.sender_name ?? "Coach"} — {new Date(msg.created_at).toLocaleString()}
+                </div>
+                <div style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{msg.body ?? ""}</div>
+            </section>
+        </main>
     );
 }

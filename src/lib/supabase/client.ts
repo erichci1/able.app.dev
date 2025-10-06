@@ -1,8 +1,8 @@
+// File: src/lib/supabase/client.ts
 "use client";
-
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-/** Returns a Supabase client that stores PKCE + session in cookies (client side). */
+/** For Client Components / hooks */
 export function supabaseClient() {
     return createClientComponentClient();
 }

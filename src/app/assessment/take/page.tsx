@@ -1,44 +1,57 @@
-// src/app/assessment/take/page.tsx
+// File: src/app/assessment/take/page.tsx
 import ExploreMenuServer from "../../../components/ExploreMenuServer";
-import { supabaseServer } from "../../../lib/supabase/server";
 import TakeAssessmentRedirectBridge from "../../../components/TakeAssessmentRedirectBridge";
+import { supabaseServerComponent } from "../../../lib/supabase/server";
 
-const JOTFORM = 'https://form.jotform.com/250324703797157';
+const JOTFORM = "https://form.jotform.com/250324703797157";
 
-export default async function TakeAssessment() {
-const supabase = supabaseServer();
-const { data: { user } } = await supabase.auth.getUser();
-const email = user?.email ?? "";
-const uid = user?.id ?? "";
+function buildJotformSrc(email: string, userId: string) {
+    const p = new URLSearchParams();
+    p.set("q12_email", email);
+    p.set("q189_user_id", userId);
+    return `${JOTFORM}?${p.toString()}`;
+}
 
-const src = email && uid
-? `${JOTFORM}?q12_email=${encodeURIComponent(email)}&q189_user_id=${encodeURIComponent(uid)}`
-: null;
+export default async function TakeAssessmentPage() {
+    const supabase = supabaseServerComponent();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.email) {
+        return (
+            <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+                <section className="card" style={{ padding: 16 }}>
+                    <h1>Alignment Assessment</h1>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                        Please sign in to take the A.B.L.E. Alignment assessment.
+                    </div>
+                    <div className="hstack" style={{ marginTop: 12, gap: 8 }}>
+                        <a className="btn btn-primary" href="/auth/sign-in?redirect=/assessment/take">Sign In</a>
+                    </div>
+                </section>
+            </main>
+        );
+    }
 
-return (
-<>
-{/* Listen for Jotform completion and promote to top-level redirect */}
-<TakeAssessmentRedirectBridge />
+    const src = buildJotformSrc(user.email, user.id);
 
-{/* (Optional) You can hide Explore menu on first-time if you like */}
-<ExploreMenuServer />
-
-<section className="card">
-<h1>ABLE Alignment Assessment</h1>
-</section>
-
-{!src ? (
-<section className="card"><div className="muted">We couldn’t detect your session. Please sign in again.</div></section>
-) : (
-<section className="card" style={{ padding: 0 }}>
-<iframe title="ABLE Assessment" src={src} width="100%" height={900} style={{ border: 0, borderRadius: "var(--radius)" }} />
-<div style={{ padding: 12 }}>
-<a className="btn btn-ghost" href={src} target="_blank" rel="noopener noreferrer">
-Open in new tab
-</a>
-</div>
-</section>
-)}
-</>
-);
+    return (
+        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+            <ExploreMenuServer />
+            <section className="card" style={{ padding: 16, marginTop: 16 }}>
+                <h1>Alignment Assessment</h1>
+                <div className="muted" style={{ marginTop: 6 }}>
+                    Complete your Alignment to personalize your coaching experience.
+                </div>
+                <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+                    <iframe
+                        title="A.B.L.E. Alignment"
+                        src={src}
+                        style={{ width: "100%", height: "80vh", border: "0" }}
+                        allow="clipboard-write *"
+                    />
+                </div>
+                {/* Optional bridge if your Jotform thank-you returns with ?done=1 inside iframe */}
+                <TakeAssessmentRedirectBridge />
+            </section>
+        </main>
+    );
 }

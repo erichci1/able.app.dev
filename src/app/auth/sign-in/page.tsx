@@ -1,20 +1,16 @@
 "use client";
 
 import React from "react";
-import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabaseClient } from "../../../lib/supabase/client";
+import { supabaseClient } from "@/lib/supabase/client";
 
-/**
-* Safe base resolver — ensures correct redirect between local/dev/prod
-*/
-const getBaseUrl = () => {
+/** Resolves proper base URL for magic link callback */
+function getBaseUrl() {
     if (typeof window !== "undefined") return window.location.origin;
-    // Server fallback during build
-    return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-};
+    return process.env.NEXT_PUBLIC_SITE_URL || "https://dev.app.ableframework.com";
+}
 
-function SignInPage() {
+export default function SignInPage() {
     const router = useRouter();
     const sp = useSearchParams();
     const supa = React.useMemo(() => supabaseClient(), []);
@@ -24,11 +20,11 @@ function SignInPage() {
     const [msg, setMsg] = React.useState<string | null>(null);
     const [err, setErr] = React.useState<string | null>(null);
 
-    // Optional redirect query, e.g. ?redirect=/assessment/take
+    // Optional ?redirect param (e.g., ?redirect=/assessment/take)
     const redirectParam = sp.get("redirect");
     const redirectQS = redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : "";
 
-    // If already logged in, send to dashboard
+    /** Redirect logged-in users directly to dashboard */
     React.useEffect(() => {
         (async () => {
             const { data } = await supa.auth.getUser();
@@ -36,6 +32,7 @@ function SignInPage() {
         })();
     }, [router, supa]);
 
+    /** Handle magic link login */
     async function handleMagicLink(e: React.FormEvent) {
         e.preventDefault();
         setLoading(true);
@@ -43,6 +40,7 @@ function SignInPage() {
         setErr(null);
 
         const callbackUrl = `${getBaseUrl()}/auth/callback${redirectQS}`;
+        console.log("Using callback URL:", callbackUrl);
 
         const { error } = await supa.auth.signInWithOtp({
             email,
@@ -50,17 +48,17 @@ function SignInPage() {
         });
 
         if (error) setErr(error.message);
-        else setMsg("Check your email for a secure login link.");
+        else setMsg("✅ Check your email for your secure login link.");
         setLoading(false);
     }
 
+    /** Handle Google OAuth */
     async function handleGoogle() {
         setLoading(true);
         setMsg(null);
         setErr(null);
 
         const callbackUrl = `${getBaseUrl()}/auth/callback${redirectQS}`;
-
         const { error } = await supa.auth.signInWithOAuth({
             provider: "google",
             options: { redirectTo: callbackUrl },
@@ -75,11 +73,12 @@ function SignInPage() {
     return (
         <div className="container" style={{ maxWidth: 520 }}>
             <section className="card" style={{ padding: 20 }}>
-                <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0 }}>Sign In</h1>
+                <h1 style={{ fontSize: 24, fontWeight: 900 }}>Sign In</h1>
                 <div className="muted" style={{ marginTop: 6 }}>
                     Use a magic link or continue with Google.
                 </div>
 
+                {/* Magic link form */}
                 <form onSubmit={handleMagicLink} style={{ marginTop: 16 }} className="vstack">
                     <label htmlFor="email" className="muted" style={{ fontWeight: 700 }}>
                         Email
@@ -108,6 +107,7 @@ function SignInPage() {
                     </button>
                 </form>
 
+                {/* Divider */}
                 <div
                     className="hstack"
                     style={{
@@ -122,6 +122,7 @@ function SignInPage() {
                     <span style={{ height: 1, background: "var(--border)", flex: 1 }} />
                 </div>
 
+                {/* Google button */}
                 <button
                     type="button"
                     disabled={loading}
@@ -150,6 +151,7 @@ function SignInPage() {
                     Continue with Google
                 </button>
 
+                {/* Feedback */}
                 {msg && <div style={{ marginTop: 12, color: "#065f46" }}>{msg}</div>}
                 {err && <div style={{ marginTop: 12, color: "#991b1b" }}>{err}</div>}
             </section>
@@ -162,6 +164,3 @@ function SignInPage() {
         </div>
     );
 }
-
-// ✅ Important: Prevent Next.js from trying to prerender this page (avoids build error)
-export default dynamic(() => Promise.resolve(SignInPage), { ssr: false });

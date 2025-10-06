@@ -1,57 +1,47 @@
 // File: src/app/videos/page.tsx
-import { supabaseServer } from "../../lib/supabase/server";
+import { supabaseServerComponent } from "../../lib/supabase/server";
 
-type Phase = "all" | "activate" | "build" | "leverage" | "execute";
 type VideoRow = {
     id: string;
     title: string | null;
     summary: string | null;
     video_url: string | null;
-    phase?: string | null;
     created_at: string | null;
+    phase?: string | null;
 };
-type SP = Record<string, string | string[] | undefined>;
-const s = (v?: string | string[] | undefined) => (v == null ? undefined : Array.isArray(v) ? v[0] : v);
 
-export default async function VideosPage({
-    searchParams,
-}: {
-    searchParams?: Promise<SP>;
-}) {
-    const sp: SP = (await searchParams) ?? {};
-    const phase = (s(sp.phase) as Phase) ?? "all";
-
-    const supabase = supabaseServer();
-
-    let q = supabase
+export default async function VideosPage() {
+    const supabase = supabaseServerComponent();
+    const { data } = await supabase
         .from("videos")
-        .select("id, title, summary, video_url, phase, created_at")
+        .select("id,title,summary,video_url,created_at,phase")
         .order("created_at", { ascending: false })
         .limit(100);
 
-    if (phase !== "all") q = q.eq("phase", phase);
+    const rows = (data ?? []) as VideoRow[];
 
-    const { data, error } = await q;
-    if (error) {
-        return (
-            <section className="card">
-                <h1>Video</h1>
-                <div style={{ color: "#991b1b" }}>{error.message}</div>
-            </section>
-        );
-    }
-
-    const rows: VideoRow[] = data ?? [];
     return (
-        <section className="card">
-            <h1>Video</h1>
-            {!rows.length ? (
-                <div className="muted" style={{ marginTop: 6 }}>
-                    {phase === "all" ? "No videos yet." : `No ${phase} videos yet.`}
-                </div>
-            ) : (
-                <ul>{rows.map((r) => <li key={r.id}>{r.title}</li>)}</ul>
-            )}
-        </section>
+        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+            <section className="card" style={{ padding: 16 }}>
+                <h1>Video</h1>
+                {!rows.length ? (
+                    <div className="muted" style={{ marginTop: 6 }}>No videos yet.</div>
+                ) : (
+                    <ul style={{ marginTop: 12 }}>
+                        {rows.map(v => (
+                            <li key={v.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                                <div style={{ fontWeight: 900 }}>{v.title}</div>
+                                <div className="muted">{v.summary}</div>
+                                {v.video_url && (
+                                    <div style={{ marginTop: 6 }}>
+                                        <a className="btn btn-ghost" href={v.video_url} target="_blank" rel="noreferrer">Open</a>
+                                    </div>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+        </main>
     );
 }

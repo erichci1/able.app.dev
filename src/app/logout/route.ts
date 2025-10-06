@@ -1,0 +1,9 @@
+// File: src/app/logout/route.ts
+import { NextResponse } from "next/server";
+import { supabaseRoute } from "../../lib/supabase/server";
+
+export async function GET() {
+    const supabase = supabaseRoute();
+    await supabase.auth.signOut();
+    return NextResponse.redirect(new URL("/auth/sign-in", process.env.NEXT_PUBLIC_SITE_URL || "https://dev.app.ableframework.com"));
+}

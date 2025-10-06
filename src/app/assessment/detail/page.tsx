@@ -1,73 +1,34 @@
 // File: src/app/assessment/detail/page.tsx
-import { supabaseServer } from "../../../lib/supabase/server";
-
+import { supabaseServerComponent } from "@/lib/supabase/server";
 
 type SP = Record<string, string | string[] | undefined>;
 
 export default async function AssessmentDetailPage({
     searchParams,
-}: {
-    // ✅ Next 15 compatible: can be a Promise or undefined during render/build
-    searchParams?: Promise<SP>;
-}) {
-    // normalize to a plain object
-    const sp: SP = (await searchParams) ?? {};
-    const rawId = sp.id;
-    const id = typeof rawId === "string" ? rawId : Array.isArray(rawId) ? rawId[0] : undefined;
+}: { searchParams?: Promise<SP> }) {
+    const sp = (await searchParams) ?? {};
+    const id = typeof sp.id === "string" ? sp.id : Array.isArray(sp.id) ? sp.id[0] : undefined;
 
-    if (!id) {
-        return (
-            <section className="card">
-                <h1>Assessment Details</h1>
-                <div className="muted" style={{ marginTop: 6 }}>
-                    No assessment id provided.
-                </div>
-            </section>
-        );
-    }
+    const supabase = supabaseServerComponent();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return <section className="card" style={{ padding: 16, margin: 16 }}>Please sign in.</section>;
 
-    const supabase = supabaseServer();
-    const { data, error } = await supabase
+    if (!id) return <section className="card" style={{ padding: 16, margin: 16 }}>No assessment specified.</section>;
+
+    const { data: row, error } = await supabase
         .from("assessment_results_2")
-        .select(
-            `
-id,
-submission_date,
-activate_percentage, build_percentage, leverage_percentage, execute_percentage,
-activate_wtm, build_wtm, leverage_wtm, execute_wtm,
-activate_yns, build_yns, leverage_yns, execute_yns
-`
-        )
-        .eq("id", id)
-        .maybeSingle();
+        .select("*").eq("id", id).eq("user_id", user.id).maybeSingle();
 
-    if (error) {
-        return (
-            <section className="card">
-                <h1>Assessment Details</h1>
-                <div style={{ color: "#991b1b", marginTop: 8 }}>{error.message}</div>
-            </section>
-        );
-    }
+    if (error || !row) return <section className="card" style={{ padding: 16, margin: 16 }}>Assessment not found.</section>;
 
-    if (!data) {
-        return (
-            <section className="card">
+    return (
+        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+            <section className="card" style={{ padding: 16 }}>
                 <h1>Assessment Details</h1>
                 <div className="muted" style={{ marginTop: 6 }}>
-                    Assessment not found.
+                    Taken {new Date(row.submission_date ?? row.created_at).toLocaleString()}
                 </div>
             </section>
-        );
-    }
-
-    // TODO: render donuts + per-pillar WTM/YNS
-    return (
-        <section className="card">
-            <h1>Assessment Details</h1>
-            <pre style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>
-                {JSON.stringify(data, null, 2)}
-            </pre>
-        </section>
+        </main>
     );
 }

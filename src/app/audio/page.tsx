@@ -1,63 +1,47 @@
 // File: src/app/audio/page.tsx
-// Update the import path to the correct location of supabaseServer
-// Update the import path below to the correct location of supabaseServer
-import { supabaseServer } from "../../lib/supabase/server";
+import { supabaseServerComponent } from "../../lib/supabase/server";
 
-type Phase = "all" | "activate" | "build" | "leverage" | "execute";
 type AudioRow = {
     id: string;
     title: string | null;
     summary: string | null;
     audio_url: string | null;
-    phase?: string | null;
     created_at: string | null;
+    phase?: string | null;
 };
-type SP = Record<string, string | string[] | undefined>;
 
-function s(v?: string | string[] | undefined) {
-    if (v == null) return undefined;
-    return Array.isArray(v) ? v[0] : v;
-}
-
-export default async function AudioPage({
-    searchParams,
-}: {
-    searchParams?: Promise<SP>;
-}) {
-    const sp: SP = (await searchParams) ?? {};
-    const phase = (s(sp.phase) as Phase) ?? "all";
-
-    const supabase = supabaseServer();
-
-    let q = supabase
+export default async function AudioPage() {
+    const supabase = supabaseServerComponent();
+    const { data } = await supabase
         .from("audio")
-        .select("id, title, summary, audio_url, phase, created_at")
+        .select("id,title,summary,audio_url,created_at,phase")
         .order("created_at", { ascending: false })
         .limit(100);
 
-    if (phase !== "all") q = q.eq("phase", phase);
+    const rows = (data ?? []) as AudioRow[];
 
-    const { data, error } = await q;
-    if (error) {
-        return (
-            <section className="card">
-                <h1>Audio</h1>
-                <div style={{ color: "#991b1b" }}>{error.message}</div>
-            </section>
-        );
-    }
-
-    const rows: AudioRow[] = data ?? [];
     return (
-        <section className="card">
-            <h1>Audio</h1>
-            {!rows.length ? (
-                <div className="muted" style={{ marginTop: 6 }}>
-                    {phase === "all" ? "No audio yet." : `No ${phase} audio yet.`}
-                </div>
-            ) : (
-                <ul>{rows.map((r) => <li key={r.id}>{r.title}</li>)}</ul>
-            )}
-        </section>
+        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+            <section className="card" style={{ padding: 16 }}>
+                <h1>Audio</h1>
+                {!rows.length ? (
+                    <div className="muted" style={{ marginTop: 6 }}>No audio yet.</div>
+                ) : (
+                    <ul style={{ marginTop: 12 }}>
+                        {rows.map(r => (
+                            <li key={r.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                                <div style={{ fontWeight: 900 }}>{r.title}</div>
+                                <div className="muted">{r.summary}</div>
+                                {r.audio_url && (
+                                    <div style={{ marginTop: 6 }}>
+                                        <audio src={r.audio_url} controls preload="none" style={{ width: "100%" }} />
+                                    </div>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+        </main>
     );
 }
