@@ -6,44 +6,48 @@ import { supabaseClient } from "@/lib/supabase/client";
 
 type Mode = "magic" | "google";
 
-/** Resolve a base URL that works on client AND during SSR fallback */
+/** ✅ Environment-safe Base URL Resolver */
 const getBaseUrl = () => {
+    // Browser client-side always uses current domain
     if (typeof window !== "undefined") return window.location.origin;
-    // During prerender we fall back to env (Render dev/prod) or localhost
-    return process.env.NEXT_PUBLIC_SITE_URL || "https://dev.app.ableframework.com";
-}
+
+    // Render / production fallback
+    if (process.env.NEXT_PUBLIC_SITE_URL)
+        return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, ""); // trim trailing slash just in case
+
+    // Development fallback
+    return "http://localhost:3000";
+};
 
 export function SignInClient() {
     const router = useRouter();
     const sp = useSearchParams();
     const supa = React.useMemo(() => supabaseClient(), []);
 
-    // Optional `?redirect=/path` coming from Framer / deep-links
     const redirectParam = sp.get("redirect");
     const redirectQS = redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : "";
 
-    // If `?error=1` or explicit code, surface a user-friendly message
     const spError = sp.get("error");
     const initialErr =
         spError && spError !== "0"
             ? "Your previous link was invalid or expired. Please try again."
             : null;
 
-    const [mode, setMode] = React.useState<Mode>("magic"); // toggle between "magic" and "google"
+    const [mode, setMode] = React.useState<Mode>("magic");
     const [email, setEmail] = React.useState("");
     const [loading, setLoading] = React.useState(false);
     const [msg, setMsg] = React.useState<string | null>(null);
     const [err, setErr] = React.useState<string | null>(initialErr);
 
-    // If already signed in, skip this screen
+    // ✅ Skip sign-in if already authenticated
     React.useEffect(() => {
         (async () => {
             const { data } = await supa.auth.getUser();
             if (data.user) router.replace("/dashboard");
         })();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [router, supa]);
 
+    // ✅ Always compute the right callback URL
     const callbackUrl = `${getBaseUrl()}/auth/callback${redirectQS}`;
 
     async function handleMagicLink(e: React.FormEvent) {
@@ -78,7 +82,7 @@ export function SignInClient() {
         }
     }
 
-    // Helper line + toggle link
+    /** Small toggle text to switch between Magic Link & Google */
     function HelperLine() {
         const linkStyle: React.CSSProperties = {
             fontWeight: 800,
@@ -91,11 +95,7 @@ export function SignInClient() {
                 {mode === "magic" ? (
                     <>
                         Already have an account?{" "}
-                        <a
-                            onClick={() => setMode("google")}
-                            style={linkStyle}
-                            aria-label="Switch to Google sign-in"
-                        >
+                        <a onClick={() => setMode("google")} style={linkStyle}>
                             Use Google
                         </a>
                         .
@@ -103,11 +103,7 @@ export function SignInClient() {
                 ) : (
                     <>
                         Prefer email instead?{" "}
-                        <a
-                            onClick={() => setMode("magic")}
-                            style={linkStyle}
-                            aria-label="Switch to Magic Link sign-in"
-                        >
+                        <a onClick={() => setMode("magic")} style={linkStyle}>
                             Send a Magic Link
                         </a>
                         .
@@ -127,7 +123,7 @@ export function SignInClient() {
                         : "Continue with Google to sign in."}
                 </div>
 
-                {/* --- Magic Link mode --- */}
+                {/* Magic Link */}
                 {mode === "magic" && (
                     <form onSubmit={handleMagicLink} style={{ marginTop: 16 }} className="vstack">
                         <label htmlFor="email" className="muted" style={{ fontWeight: 700 }}>
@@ -155,13 +151,11 @@ export function SignInClient() {
                         >
                             {loading ? "Sending link…" : "Send Magic Link"}
                         </button>
-
-                        {/* Helper text to switch to Google */}
                         <HelperLine />
                     </form>
                 )}
 
-                {/* --- Google mode --- */}
+                {/* Google */}
                 {mode === "google" && (
                     <div style={{ marginTop: 16 }}>
                         <button
@@ -190,18 +184,14 @@ export function SignInClient() {
                             />
                             Continue with Google
                         </button>
-
-                        {/* Helper text to switch back to Magic Link */}
                         <HelperLine />
                     </div>
                 )}
 
-                {/* Feedback */}
                 {msg && <div style={{ marginTop: 12, color: "#065f46" }}>{msg}</div>}
                 {err && <div style={{ marginTop: 12, color: "#991b1b" }}>{err}</div>}
             </section>
 
-            {/* Small note */}
             <section className="card" style={{ padding: 16 }}>
                 <div className="muted" style={{ fontSize: 12 }}>
                     By continuing, you agree to the Terms and acknowledge the Privacy Policy.
