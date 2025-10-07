@@ -7,10 +7,10 @@ import { supabaseClient } from "@/lib/supabase/client";
 type Mode = "magic" | "google";
 
 /** Resolve a base URL that works on client AND during SSR fallback */
-function getBaseUrl() {
+const getBaseUrl = () => {
     if (typeof window !== "undefined") return window.location.origin;
     // During prerender we fall back to env (Render dev/prod) or localhost
-    return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    return process.env.NEXT_PUBLIC_SITE_URL || "https://dev.app.ableframework.com";
 }
 
 export function SignInClient() {
