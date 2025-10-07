@@ -26,7 +26,7 @@ type ResourceRow = {
 export default async function ResourcesPreviewCard({
     phase = "all",
 }: { phase?: Phase }) {
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
 
     async function fetchFiltered(): Promise<{ data: ResourceRow[] | null; error: PostgrestError | null }> {
         let q = supabase

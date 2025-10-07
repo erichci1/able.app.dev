@@ -55,7 +55,7 @@ export default async function UpcomingEventsCard({
     showJoin = true,
     showCalendar = false,
 }: Props) {
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
 
     // Normalize bounds
     const fromIso = toISO(from) ?? new Date().toISOString(); // default to now

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { supabaseServerComponent } from "../../lib/supabase/server";
 
 export default async function MessagesPreviewCard() {
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user?.id) {

@@ -43,7 +43,7 @@ export default async function ResourcesPreviewCard({
     limit = 3,
     showPhaseChips = true,
 }: Props) {
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
 
     /** Build the main (phase & category aware) query */
     async function fetchFiltered(): Promise<{ data: ResourceRow[] | null; error: PostgrestError | null }> {

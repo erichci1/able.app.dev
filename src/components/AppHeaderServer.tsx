@@ -3,7 +3,7 @@ import Link from "next/link";
 import { supabaseServerComponent } from "../lib/supabase/server";
 
 export default async function AppHeaderServer() {
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
 
     // Unread count (only when signed in)

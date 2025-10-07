@@ -1,73 +1,85 @@
 // File: src/app/event/page.tsx
+import Link from "next/link";
 import { supabaseServerComponent } from "../../lib/supabase/server";
 
 type SP = Record<string, string | string[] | undefined>;
+const s = (v?: string | string[] | undefined) => (v == null ? undefined : Array.isArray(v) ? v[0] : v);
 
 export default async function EventDetailPage({ searchParams }: { searchParams?: Promise<SP> }) {
   const sp: SP = (await searchParams) ?? {};
-  const idRaw = sp.id;
-  const id = typeof idRaw === "string" ? idRaw : Array.isArray(idRaw) ? idRaw[0] : undefined;
-
-  const supabase = supabaseServerComponent();
+  const id = s(sp.id);
 
   if (!id) {
     return (
-      <section className="card">
-        <h2>Event</h2>
-        <div className="muted">No event specified.</div>
-      </section>
+      <main className="container" style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+        <section className="card" style={{ padding: 16 }}>
+          <h1>Event</h1>
+          <div className="muted" style={{ marginTop: 6 }}>No event specified.</div>
+          <div className="hstack" style={{ marginTop: 12 }}>
+            <Link className="btn btn-ghost" href="/events">Back to Events</Link>
+          </div>
+        </section>
+      </main>
     );
   }
 
-  const { data: ev, error } = await supabase
+  const supabase = await supabaseServerComponent();
+
+  const { data, error } = await supabase
     .from("community_events")
-    .select("id,title,description,start_at,end_at,event_type,location,venue,meet_url,calendar_url")
+    .select("id, title, description, event_type, start_at, end_at, meet_url, calendar_url, location, venue")
     .eq("id", id)
     .maybeSingle();
 
-  if (error) {
-    return (
-      <section className="card">
-        <h2>Event</h2>
-        <div style={{ color: "#991b1b" }}>{error.message}</div>
-      </section>
-    );
-  }
-
-  if (!ev) {
-    return (
-      <section className="card">
-        <h2>Event</h2>
-        <div className="muted">Event not found.</div>
-      </section>
-    );
-  }
-
   return (
-    <section className="card">
-      <h2>{ev.title || "Event"}</h2>
-      <div className="muted" style={{ marginTop: 6 }}>
-        {ev.start_at ? new Date(ev.start_at).toLocaleString() : ""}
-        {ev.location ? ` • ${ev.location}` : ev.venue ? ` • ${ev.venue}` : ""}
-        {ev.event_type ? ` • ${ev.event_type}` : ""}
-      </div>
-      {ev.description && (
-        <div style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
-          {ev.description}
-        </div>
-      )}
-      <div className="hstack" style={{ marginTop: 12, gap: 8 }}>
-        {ev.meet_url && (
-          <a className="btn btn-primary" href={ev.meet_url} target="_blank" rel="noopener noreferrer">
-            Join
-          </a>
+    <main className="container" style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+      <section className="card" style={{ padding: 16 }}>
+        {error ? (
+          <>
+            <h1>Event</h1>
+            <div style={{ color: "#991b1b", marginTop: 8 }}>{error.message}</div>
+            <div className="hstack" style={{ marginTop: 12 }}>
+              <Link className="btn btn-ghost" href="/events">Back to Events</Link>
+            </div>
+          </>
+        ) : !data ? (
+          <>
+            <h1>Event</h1>
+            <div className="muted" style={{ marginTop: 6 }}>Not found.</div>
+            <div className="hstack" style={{ marginTop: 12 }}>
+              <Link className="btn btn-ghost" href="/events">Back to Events</Link>
+            </div>
+          </>
+        ) : (
+          <>
+            <h1>{data.title || "Event"}</h1>
+            <div className="muted" style={{ marginTop: 6 }}>
+              {fmtRange(data.start_at, data.end_at)}
+              {data.location ? ` • ${data.location}` : data.venue ? ` • ${data.venue}` : ""}
+              {data.event_type ? ` • ${data.event_type}` : ""}
+            </div>
+
+            {data.description && <p className="muted" style={{ marginTop: 12 }}>{data.description}</p>}
+
+            <div className="hstack" style={{ marginTop: 12, gap: 8 }}>
+              {data.meet_url && (
+                <a className="btn btn-primary" href={data.meet_url} target="_blank" rel="noopener noreferrer">Join</a>
+              )}
+              {data.calendar_url && (
+                <a className="btn btn-ghost" href={data.calendar_url} target="_blank" rel="noopener noreferrer">Add to Calendar</a>
+              )}
+              <Link className="btn btn-ghost" href="/events">Back to Events</Link>
+            </div>
+          </>
         )}
-        {ev.calendar_url && (
-          <a className="btn btn-ghost" href={ev.calendar_url} target="_blank" rel="noopener noreferrer">
-            Add to Calendar
-          </a>
-        )}
-      </div>
-    </section>
+      </section>
+    </main>
   );
+}
+
+function fmtRange(start?: string | null, end?: string | null) {
+  if (!start) return "";
+  const s = new Date(start); const e = end ? new Date(end) : null;
+  const sPart = s.toLocaleString(); const ePart = e ? e.toLocaleTimeString() : "";
+  return e ? `${sPart} – ${ePart}` : sPart;
 }

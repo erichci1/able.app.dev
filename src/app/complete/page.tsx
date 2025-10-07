@@ -16,7 +16,7 @@ export default async function CompletePage({
     const sp: SP = (await searchParams) ?? {};
     const isFirst = s(sp.first) === "1";
 
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {

@@ -4,7 +4,7 @@ import AbleDonuts, { type AssessmentValues } from "../AbleDonuts";
 import { supabaseServerComponent } from "../../lib/supabase/server";
 
 export default async function AssessmentCard() {
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user?.id) {

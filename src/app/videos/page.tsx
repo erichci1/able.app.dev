@@ -1,5 +1,4 @@
 // File: src/app/videos/page.tsx
-import ExploreMenuServer from "../../components/ExploreMenuServer";
 import { supabaseServerComponent } from "../../lib/supabase/server";
 
 type SP = Record<string, string | string[] | undefined>;
@@ -14,7 +13,7 @@ export default async function VideosPage({ searchParams }: { searchParams?: Prom
     const sortAsc = s(sp.sort) === "asc";
     const q = s(sp.q)?.trim();
 
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
 
     async function fetchPhaseAware() {
         let qy = supabase
@@ -44,16 +43,11 @@ export default async function VideosPage({ searchParams }: { searchParams?: Prom
     const rows = data ?? [];
 
     return (
-        <>
-            <ExploreMenuServer />
-
-            <section className="card" style={{ maxWidth: 1040, margin: "24px auto" }}>
+        <main className="container" style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+            <section className="card" style={{ padding: 16 }}>
                 <header className="hstack" style={{ justifyContent: "space-between", alignItems: "center" }}>
                     <h1>Video</h1>
-                    <div className="hstack" style={{ gap: 8, flexWrap: "wrap" as const }}>
-                        <PhaseChips active={phase} />
-                        <SortChips phase={phase} sort={sortAsc ? "asc" : "desc"} q={q} />
-                    </div>
+                    <FilterBar phase={phase} sort={sortAsc ? "asc" : "desc"} q={q} />
                 </header>
 
                 {error ? (
@@ -65,53 +59,47 @@ export default async function VideosPage({ searchParams }: { searchParams?: Prom
                     </div>
                 ) : (
                     <ul style={{ marginTop: 8 }}>
-                        {rows.map((row) => (
-                            <li
-                                key={row.id}
-                                style={{
-                                    padding: 12,
-                                    borderTop: "1px solid var(--border)",
-                                    display: "grid",
-                                    gridTemplateColumns: "1fr auto",
-                                    gap: 12,
-                                    alignItems: "center",
-                                }}
-                            >
-                                <div>
-                                    <div style={{ fontWeight: 900 }}>{row.title || "Untitled"}</div>
-                                    <div className="muted" style={{ marginTop: 4 }}>
-                                        {fmt(row.created_at)}{" "}
-                                        {"phase" in row && (row as any).phase ? `• ${cap((row as any).phase as string)}` : ""}
-                                    </div>
-                                    {row.summary && <div className="muted" style={{ marginTop: 6 }}>{row.summary}</div>}
+                        {rows.map((r: any) => (
+                            <li key={r.id} style={{ padding: 12, borderTop: "1px solid var(--border)" }}>
+                                <div style={{ fontWeight: 900 }}>{r.title || "Untitled"}</div>
+                                <div className="muted" style={{ marginTop: 4 }}>
+                                    {fmt(r.created_at)}{" "}
+                                    {("phase" in r && r.phase) ? `• ${cap(r.phase as string)}` : ""}
                                 </div>
-                                <div className="hstack" style={{ gap: 8, justifySelf: "end" }}>
-                                    {row.video_url && (
-                                        <a className="btn btn-primary" href={row.video_url!} target="_blank" rel="noopener noreferrer">
+                                {r.summary && <div className="muted" style={{ marginTop: 6 }}>{r.summary}</div>}
+                                {r.video_url && (
+                                    <div className="hstack" style={{ gap: 8, marginTop: 8 }}>
+                                        <a className="btn btn-primary" href={r.video_url} target="_blank" rel="noopener noreferrer">
                                             Watch
                                         </a>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </li>
                         ))}
                     </ul>
                 )}
             </section>
-        </>
+        </main>
     );
 }
 
-function PhaseChips({ active }: { active: Phase }) {
+function FilterBar({ phase, sort, q }: { phase: Phase; sort: "asc" | "desc"; q?: string }) {
+    const make = (p: Phase, srt: "asc" | "desc", qv?: string) => {
+        const params = new URLSearchParams();
+        params.set("phase", p);
+        params.set("sort", srt);
+        if (qv) params.set("q", qv);
+        return `?${params.toString()}`;
+    };
+
     return (
         <div className="hstack" style={{ gap: 8, flexWrap: "wrap" as const }}>
-            {["all", "activate", "build", "leverage", "execute"].map((p) => {
-                const params = new URLSearchParams(); params.set("phase", p);
-                const href = `?${params.toString()}`;
-                const is = p === active;
+            {(["all", "activate", "build", "leverage", "execute"] as Phase[]).map((p) => {
+                const is = p === phase;
                 return (
                     <a
                         key={p}
-                        href={href}
+                        href={make(p, sort, q)}
                         className="btn"
                         aria-pressed={is}
                         style={{
@@ -127,22 +115,9 @@ function PhaseChips({ active }: { active: Phase }) {
                     </a>
                 );
             })}
-        </div>
-    );
-}
-
-function SortChips({ phase, sort, q }: { phase: Phase; sort: "asc" | "desc"; q?: string }) {
-    const make = (srt: "asc" | "desc") => {
-        const p = new URLSearchParams();
-        p.set("phase", phase);
-        p.set("sort", srt);
-        if (q) p.set("q", q);
-        return `?${p.toString()}`;
-    };
-    return (
-        <div className="hstack" style={{ gap: 8 }}>
-            <a className="btn" href={make("asc")}>Oldest</a>
-            <a className="btn" href={make("desc")}>Newest</a>
+            <span style={{ width: 8 }} />
+            <a className="btn" href={make(phase, "asc", q)}>Oldest</a>
+            <a className="btn" href={make(phase, "desc", q)}>Newest</a>
         </div>
     );
 }

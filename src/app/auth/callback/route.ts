@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseRoute } from "../../../lib/supabase/server";
 
 export async function GET(req: Request) {
-    const supabase = supabaseRoute();
+    const supabase = await supabaseRoute();
 
     // Parse the URL to keep ?redirect=/something
     const url = new URL(req.url);

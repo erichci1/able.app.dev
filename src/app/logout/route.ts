@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { supabaseRoute } from "../../lib/supabase/server";
 
 export async function GET() {
-    const supabase = supabaseRoute();
+    const supabase = await supabaseRoute();
     await supabase.auth.signOut(); // clears cookies via route-handler cookies()
 
     // Send them to sign-in (optionally could keep ?redirect=)

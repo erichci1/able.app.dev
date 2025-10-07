@@ -5,7 +5,7 @@ import { supabaseServerComponent } from "../lib/supabase/server";
 type Counts = { video: number; audio: number; challenge: number; resource: number };
 
 export default async function ExploreMenuServer() {
-  const supabase = supabaseServerComponent();
+  const supabase = await supabaseServerComponent();
   const { data: { user } } = await supabase.auth.getUser();
 
   let counts: Counts = { video: 0, audio: 0, challenge: 0, resource: 0 };
@@ -38,7 +38,9 @@ export default async function ExploreMenuServer() {
   );
 }
 
-async function countNew(supabase: ReturnType<typeof supabaseServerComponent>, table: string, since?: string | null) {
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+async function countNew(supabase: SupabaseClient, table: string, since?: string | null) {
   let q = supabase.from(table).select("id", { head: true, count: "exact" });
   if (since) q = q.gt("created_at", since);
   const { count } = await q;

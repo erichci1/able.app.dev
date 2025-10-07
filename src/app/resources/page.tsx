@@ -1,67 +1,138 @@
 // File: src/app/resources/page.tsx
-import Link from "next/link";
 import { supabaseServerComponent } from "../../lib/supabase/server";
 
 type SP = Record<string, string | string[] | undefined>;
-const s = (v?: string | string[] | undefined) =>
-    v == null ? undefined : Array.isArray(v) ? v[0] : v;
+const s = (v?: string | string[] | undefined) => (v == null ? undefined : Array.isArray(v) ? v[0] : v);
 
-export default async function ResourcesPage({
-    searchParams,
-}: {
-    searchParams?: Promise<SP>;
-}) {
+const PHASES = ["all", "activate", "build", "leverage", "execute"] as const;
+type Phase = typeof PHASES[number];
+
+export default async function ResourcesPage({ searchParams }: { searchParams?: Promise<SP> }) {
     const sp: SP = (await searchParams) ?? {};
-    const phase = s(sp.phase) as "activate" | "build" | "leverage" | "execute" | undefined;
-    const category = s(sp.category);
+    const phase = (s(sp.phase) as Phase) ?? "all";
+    const sortAsc = s(sp.sort) === "asc";
+    const q = s(sp.q)?.trim();
 
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
 
-    let q = supabase
-        .from("resources")
-        .select("id,title,summary,created_at,category,phase,url")
-        .order("created_at", { ascending: false });
-
-    if (phase) q = q.eq("phase", phase);
-    if (category) q = q.eq("category", category);
-
-    const { data, error } = await q;
-
-    if (error) {
-        return (
-            <section className="card">
-                <h2>Resources</h2>
-                <div style={{ color: "#991b1b" }}>{error.message}</div>
-            </section>
-        );
+    async function fetchPhaseAware() {
+        let qy = supabase
+            .from("resources")
+            .select("id, title, summary, url, created_at, category, phase")
+            .order("created_at", { ascending: !!sortAsc });
+        if (phase !== "all") qy = qy.eq("phase", phase);
+        if (q) qy = qy.ilike("title", `%${q}%`);
+        return await qy;
     }
+
+    async function fetchFallback() {
+        let qy = supabase
+            .from("resources")
+            .select("id, title, summary, url, created_at, category")
+            .order("created_at", { ascending: !!sortAsc });
+        if (q) qy = qy.ilike("title", `%${q}%`);
+        return await qy;
+    }
+
+    const try1 = await fetchPhaseAware();
+    const { data, error } =
+        try1.error && /column .*phase.* does not exist/i.test(try1.error.message)
+            ? await fetchFallback()
+            : try1;
 
     const rows = data ?? [];
 
     return (
-        <section className="card">
-            <h2>Resources</h2>
-            {!rows.length ? (
-                <div className="muted" style={{ marginTop: 6 }}>No resources found.</div>
-            ) : (
-                <ul style={{ marginTop: 8 }}>
-                    {rows.map((r) => (
-                        <li key={r.id} style={{ padding: 12, borderTop: "1px solid var(--border)" }}>
-                            <div style={{ fontWeight: 900 }}>{r.title}</div>
-                            <div className="muted" style={{ marginTop: 4 }}>
-                                {r.created_at ? new Date(r.created_at).toLocaleDateString() : ""}
-                                {r.category ? ` • ${r.category}` : ""}
-                                {r.phase ? ` • ${r.phase}` : ""}
-                            </div>
-                            {r.summary && <div className="muted" style={{ marginTop: 6 }}>{r.summary}</div>}
-                            <div className="hstack" style={{ marginTop: 8 }}>
-                                {r.url && <a className="btn btn-primary" href={r.url} target="_blank" rel="noopener noreferrer">Open</a>}
-                                <Link className="btn btn-ghost" href={`/resource?id=${encodeURIComponent(r.id)}`}>Details</Link>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            )}
-        </section>
+        <main className="container" style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+            <section className="card" style={{ padding: 16 }}>
+                <header className="hstack" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <h1>Resources</h1>
+                    <FilterBar phase={phase} sort={sortAsc ? "asc" : "desc"} q={q} />
+                </header>
+
+                {error ? (
+                    <div style={{ color: "#991b1b", marginTop: 8 }}>{error.message}</div>
+                ) : !rows.length ? (
+                    <div className="muted" style={{ marginTop: 6 }}>
+                        {phase === "all" ? "No resources yet." : `No ${cap(phase)} resources yet.`}
+                        {q ? ` Matching “${q}”.` : ""}
+                    </div>
+                ) : (
+                    <ul style={{ marginTop: 8 }}>
+                        {rows.map((r: any) => (
+                            <li
+                                key={r.id}
+                                style={{
+                                    padding: 12,
+                                    borderTop: "1px solid var(--border)",
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr auto",
+                                    gap: 12,
+                                    alignItems: "center",
+                                }}
+                            >
+                                <div>
+                                    <div style={{ fontWeight: 900 }}>{r.title}</div>
+                                    <div className="muted" style={{ marginTop: 4 }}>
+                                        {fmt(r.created_at)}
+                                        {r.category ? ` • ${r.category}` : ""}
+                                        {("phase" in r && r.phase) ? ` • ${cap(r.phase as string)}` : ""}
+                                    </div>
+                                    {r.summary && <div className="muted" style={{ marginTop: 6 }}>{r.summary}</div>}
+                                </div>
+                                <div className="hstack" style={{ gap: 8, justifySelf: "end" }}>
+                                    {r.url && (
+                                        <a className="btn btn-primary" href={r.url} target="_blank" rel="noopener noreferrer">Open</a>
+                                    )}
+                                    <a className="btn btn-ghost" href={`/resource?id=${encodeURIComponent(r.id)}`}>Details</a>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+        </main>
     );
 }
+
+function FilterBar({ phase, sort, q }: { phase: Phase; sort: "asc" | "desc"; q?: string }) {
+    const make = (p: Phase, srt: "asc" | "desc", qv?: string) => {
+        const params = new URLSearchParams();
+        params.set("phase", p);
+        params.set("sort", srt);
+        if (qv) params.set("q", qv);
+        return `?${params.toString()}`;
+    };
+
+    return (
+        <div className="hstack" style={{ gap: 8, flexWrap: "wrap" as const }}>
+            {(["all", "activate", "build", "leverage", "execute"] as Phase[]).map((p) => {
+                const is = p === phase;
+                return (
+                    <a
+                        key={p}
+                        href={make(p, sort, q)}
+                        className="btn"
+                        aria-pressed={is}
+                        style={{
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            fontWeight: 800,
+                            background: is ? "#0C2D6F" : "#fff",
+                            color: is ? "#fff" : "#0f172a",
+                            border: "1px solid var(--border)",
+                        }}
+                    >
+                        {cap(p)}
+                    </a>
+                );
+            })}
+            <span style={{ width: 8 }} />
+            <a className="btn" href={make(phase, "asc", q)}>Oldest</a>
+            <a className="btn" href={make(phase, "desc", q)}>Newest</a>
+        </div>
+    );
+}
+
+function cap(v: string) { return v ? v[0].toUpperCase() + v.slice(1) : ""; }
+function fmt(iso?: string | null) { return iso ? new Date(iso).toLocaleString() : ""; }

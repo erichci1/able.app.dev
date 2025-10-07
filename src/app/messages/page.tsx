@@ -16,7 +16,7 @@ export default async function MessagesPage({
     const filter = (s(sp.filter) as "all" | "unread" | "read" | undefined) ?? "all";
     const sortAsc = s(sp.sort) === "asc";
 
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user?.id) {

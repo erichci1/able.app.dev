@@ -14,7 +14,7 @@ export default async function MessageDetailPage({
     const sp: SP = (await searchParams) ?? {};
     const id = s(sp.id);
 
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user?.id) {

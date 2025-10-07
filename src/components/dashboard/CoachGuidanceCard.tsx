@@ -5,7 +5,7 @@ import { supabaseServerComponent } from "../../lib/supabase/server";
 type Phase = "all" | "activate" | "build" | "leverage" | "execute";
 
 export default async function CoachGuidanceCard({ phase = "all" }: { phase?: Phase }) {
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user?.id) {
