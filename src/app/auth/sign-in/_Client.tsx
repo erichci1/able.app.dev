@@ -3,81 +3,106 @@
 
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+// adjust depth if your folders differ
+import { supabaseClient } from "../../../lib/supabase/client";
+
+/** Resolve base URL for callback (works local, dev, prod) */
+function getBaseUrl() {
+    if (typeof window !== "undefined") return window.location.origin;
+    return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+}
+
+/** Internal redirect guard */
+function safeInternal(path?: string | null) {
+    if (!path) return null;
+    if (!path.startsWith("/")) return null;
+    if (path.startsWith("//")) return null;
+    if (path.startsWith("/auth/")) return null;
+    return path;
+}
 
 export default function SignInClient() {
     const router = useRouter();
     const sp = useSearchParams();
-
-    const redirectParam = sp.get("redirect");
-    const redirectQS = redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : "";
+    const supa = React.useMemo(() => supabaseClient(), []);
 
     const [email, setEmail] = React.useState("");
     const [loading, setLoading] = React.useState(false);
     const [msg, setMsg] = React.useState<string | null>(null);
     const [err, setErr] = React.useState<string | null>(null);
 
-    const getBase = () =>
-        typeof window === "undefined"
-            ? process.env.NEXT_PUBLIC_SITE_URL || "https://app.dev.ableframework.com"
-            : window.location.origin;
+    // Optional redirect param (?redirect=/assessment/take)
+    const redirectRaw = sp.get("redirect");
+    const redirect = safeInternal(redirectRaw);
+    const redirectQS = redirect ? `?redirect=${encodeURIComponent(redirect)}` : "";
 
-    // Already signed in? Redirect (client-only; lazy-load Supabase)
+    // Surface Supabase callback errors (?error=...&error_description=...)
+    const errorCode = sp.get("error");
+    const errorDesc = sp.get("error_description");
     React.useEffect(() => {
-        let mounted = true;
+        if (errorCode) {
+            setErr(
+                decodeURIComponent(
+                    errorDesc || "Sign-in link is invalid or expired. Please request a new link."
+                )
+            );
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [errorCode]);
+
+    // Already signed-in? Go to dashboard
+    React.useEffect(() => {
         (async () => {
-            try {
-                const { supabaseClient } = await import("../../../lib/supabase/client");
-                const supa = supabaseClient();
-                const { data } = await supa.auth.getUser();
-                if (mounted && data.user) router.replace("/dashboard");
-            } catch {/* ignore */ }
+            const { data } = await supa.auth.getUser();
+            if (data.user) router.replace("/dashboard");
         })();
-        return () => { mounted = false; };
-    }, [router]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     async function handleMagicLink(e: React.FormEvent) {
         e.preventDefault();
-        setLoading(true); setMsg(null); setErr(null);
-        try {
-            const { supabaseClient } = await import("../../../lib/supabase/client");
-            const supa = supabaseClient();
-            const callbackUrl = `${getBase()}/auth/callback${redirectQS}`;
-            const { error } = await supa.auth.signInWithOtp({
-                email,
-                options: { emailRedirectTo: callbackUrl },
-            });
-            if (error) setErr(error.message);
-            else setMsg("Check your email for a secure login link.");
-        } catch (e: unknown) {
-            setErr(e instanceof Error ? e.message : "Unexpected error");
-        } finally { setLoading(false); }
+        setLoading(true);
+        setMsg(null);
+        setErr(null);
+
+        const callbackUrl = `${getBaseUrl()}/auth/callback${redirectQS}`;
+        const { error } = await supa.auth.signInWithOtp({
+            email,
+            options: { emailRedirectTo: callbackUrl },
+        });
+
+        if (error) setErr(error.message);
+        else setMsg("✅ Check your email for your secure login link.");
+        setLoading(false);
     }
 
     async function handleGoogle() {
-        setLoading(true); setMsg(null); setErr(null);
-        try {
-            const { supabaseClient } = await import("../../../lib/supabase/client");
-            const supa = supabaseClient();
-            const callbackUrl = `${getBase()}/auth/callback${redirectQS}`;
-            const { error } = await supa.auth.signInWithOAuth({
-                provider: "google",
-                options: { redirectTo: callbackUrl },
-            });
-            if (error) { setErr(error.message); setLoading(false); }
-        } catch (e: unknown) {
-            setErr(e instanceof Error ? e.message : "Unexpected error");
+        setLoading(true);
+        setMsg(null);
+        setErr(null);
+
+        const callbackUrl = `${getBaseUrl()}/auth/callback${redirectQS}`;
+        const { error } = await supa.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: callbackUrl },
+        });
+
+        if (error) {
+            setErr(error.message);
             setLoading(false);
         }
+        // On success, Supabase redirects to /auth/callback
     }
 
     return (
-        <div className="container" style={{ maxWidth: 520 }}>
+        <div className="container" style={{ maxWidth: 520, margin: "24px auto" }}>
             <section className="card" style={{ padding: 20 }}>
                 <h1 style={{ fontSize: 24, fontWeight: 900, margin: 0 }}>Sign In</h1>
                 <div className="muted" style={{ marginTop: 6 }}>
                     Use a magic link or continue with Google.
                 </div>
 
+                {/* Magic Link */}
                 <form onSubmit={handleMagicLink} style={{ marginTop: 16 }} className="vstack">
                     <label htmlFor="email" className="muted" style={{ fontWeight: 700 }}>
                         Email
@@ -106,15 +131,22 @@ export default function SignInClient() {
                     </button>
                 </form>
 
+                {/* Divider */}
                 <div
                     className="hstack"
-                    style={{ gap: 12, alignItems: "center", marginTop: 16, color: "var(--muted)" }}
+                    style={{
+                        gap: 12,
+                        alignItems: "center",
+                        marginTop: 16,
+                        color: "var(--muted)",
+                    }}
                 >
                     <span style={{ height: 1, background: "var(--border)", flex: 1 }} />
                     <span style={{ fontSize: 12, fontWeight: 800 }}>OR</span>
                     <span style={{ height: 1, background: "var(--border)", flex: 1 }} />
                 </div>
 
+                {/* Google OAuth */}
                 <button
                     type="button"
                     disabled={loading}
@@ -143,10 +175,12 @@ export default function SignInClient() {
                     Continue with Google
                 </button>
 
+                {/* Feedback */}
                 {msg && <div style={{ marginTop: 12, color: "#065f46" }}>{msg}</div>}
                 {err && <div style={{ marginTop: 12, color: "#991b1b" }}>{err}</div>}
             </section>
 
+            {/* Small note */}
             <section className="card" style={{ padding: 16 }}>
                 <div className="muted" style={{ fontSize: 12 }}>
                     By continuing, you agree to the Terms and acknowledge the Privacy Policy.
