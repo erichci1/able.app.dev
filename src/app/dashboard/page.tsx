@@ -39,7 +39,12 @@ export default async function DashboardPage() {
                     }}
                 >
                     <CoachGuidanceCard phase="all" />
-                    <UpcomingEventsCardCalendar limit={3} showJoin showCalendar />
+                    <UpcomingEventsCardCalendar
+                        events={[]} // TODO: Replace with actual events data
+                        limit={3}
+                        showJoin
+                        showCalendar
+                    />
                 </section>
 
                 {/* Messages */}
