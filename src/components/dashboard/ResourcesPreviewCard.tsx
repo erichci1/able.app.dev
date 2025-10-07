@@ -1,6 +1,6 @@
 // File: src/components/dashboard/ResourcesPreviewCard.tsx
 import Link from "next/link";
-import { supabaseServerComponent } from "../lib/supabase/server";
+import { supabaseServerComponent } from "../../lib/supabase/server";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 const PHASES = [
@@ -23,59 +23,86 @@ type ResourceRow = {
     phase?: string | null;
 };
 
+type Props = {
+    /** Card title (default: "Resources") */
+    title?: string;
+    /** A.B.L.E. phase filter (default: "all") */
+    phase?: Phase;
+    /** Category filter (exact match; default: show all) */
+    category?: string | null;
+    /** Max items to render (default: 3) */
+    limit?: number;
+    /** Render the phase chips row (default: true) */
+    showPhaseChips?: boolean;
+};
+
 export default async function ResourcesPreviewCard({
+    title = "Resources",
     phase = "all",
-}: { phase?: Phase }) {
+    category = null,
+    limit = 3,
+    showPhaseChips = true,
+}: Props) {
     const supabase = supabaseServerComponent();
 
+    /** Build the main (phase & category aware) query */
     async function fetchFiltered(): Promise<{ data: ResourceRow[] | null; error: PostgrestError | null }> {
         let q = supabase
             .from("resources")
             .select("id, title, summary, url, created_at, category, phase")
             .order("created_at", { ascending: false })
-            .limit(3);
+            .limit(limit);
+
         if (phase !== "all") q = q.eq("phase", phase);
+        if (category) q = q.eq("category", category);
+
         return await q;
     }
 
+    /** Fallback for when the 'phase' column doesn't exist */
     async function fetchFallback(): Promise<{ data: ResourceRow[] | null; error: PostgrestError | null }> {
-        return await supabase
+        let q = supabase
             .from("resources")
             .select("id, title, summary, url, created_at, category")
             .order("created_at", { ascending: false })
-            .limit(3);
+            .limit(limit);
+
+        if (category) q = q.eq("category", category);
+        return await q;
     }
 
-    let data: ResourceRow[] | null = null;
-    let error: PostgrestError | null = null;
-
+    // Try phase-aware; fallback if 'phase' column missing
     const try1 = await fetchFiltered();
-    if (try1.error && /column .*phase.* does not exist/i.test(try1.error.message)) {
-        const try2 = await fetchFallback();
-        data = try2.data ?? [];
-        error = try2.error;
-    } else {
-        data = try1.data ?? [];
-        error = try1.error;
-    }
+    const { data, error } =
+        try1.error && /column .*phase.* does not exist/i.test(try1.error.message)
+            ? await fetchFallback()
+            : try1;
+
+    const rows = (data ?? []) as ResourceRow[];
 
     return (
         <section className="card">
             <div className="hstack" style={{ justifyContent: "space-between", alignItems: "center" }}>
-                <h2>Resources</h2>
-                <PhaseChips active={phase} />
+                <h2>{title}</h2>
+                {showPhaseChips && <PhaseChips active={phase} />}
             </div>
 
             {error ? (
                 <div style={{ color: "#991b1b", marginTop: 8 }}>{error.message}</div>
-            ) : !data?.length ? (
+            ) : !rows.length ? (
                 <div className="muted" style={{ marginTop: 6 }}>
-                    {phase === "all" ? "No resources yet." : `No ${phase} resources yet.`}
+                    {phase === "all"
+                        ? category
+                            ? `No resources in category “${category}”.`
+                            : "No resources yet."
+                        : category
+                            ? `No ${phase} resources in “${category}”.`
+                            : `No ${phase} resources yet.`}
                 </div>
             ) : (
                 <div style={{ marginTop: 8 }}>
                     <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                        {data.map((r) => (
+                        {rows.map((r) => (
                             <li
                                 key={r.id}
                                 style={{
@@ -92,11 +119,15 @@ export default async function ResourcesPreviewCard({
                                     <div className="muted" style={{ marginTop: 4 }}>
                                         {fmtDate(r.created_at)}
                                         {r.category ? ` • ${r.category}` : ""}
-                                        {r.phase ? ` • ${label(r.phase)}` : ""}
+                                        {r.phase ? ` • ${cap(r.phase)}` : ""}
                                     </div>
-                                    {r.summary && <div className="muted" style={{ marginTop: 6 }}>{r.summary}</div>}
+                                    {r.summary && (
+                                        <div className="muted" style={{ marginTop: 6 }}>
+                                            {r.summary}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="hstack" style={{ justifySelf: "end" }}>
+                                <div className="hstack" style={{ justifySelf: "end", gap: 8 }}>
                                     {r.url && (
                                         <a
                                             className="btn btn-primary"
@@ -125,6 +156,8 @@ export default async function ResourcesPreviewCard({
         </section>
     );
 }
+
+/* ---------- UI helpers ---------- */
 
 function PhaseChips({ active }: { active: Phase }) {
     return (
@@ -163,6 +196,6 @@ function fmtDate(iso?: string | null) {
         year: "numeric",
     });
 }
-function label(p: string) {
-    return p[0].toUpperCase() + p.slice(1);
+function cap(p: string) {
+    return p ? p[0].toUpperCase() + p.slice(1) : "";
 }

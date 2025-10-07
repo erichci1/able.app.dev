@@ -1,61 +1,47 @@
 // File: src/app/auth/callback/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseRoute } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
+import { supabaseRoute } from "../../../lib/supabase/server";
 
-function safeInternal(path?: string | null) {
-    if (!path) return null;
-    if (!path.startsWith("/")) return null;
-    if (path.startsWith("//")) return null;
-    if (path.startsWith("/auth/")) return null;
-    return path;
-}
-
-export async function GET(req: NextRequest) {
-    const url = new URL(req.url);
-    const code = url.searchParams.get("code");
-    const redirectParam = url.searchParams.get("redirect");
-
+export async function GET(req: Request) {
     const supabase = supabaseRoute();
 
-    if (!code) {
-        return NextResponse.redirect(new URL("/auth/sign-in?error=missing_code", url));
-    }
+    // Parse the URL to keep ?redirect=/something
+    const url = new URL(req.url);
+    const redirectParam = url.searchParams.get("redirect");
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    // Supabase will set the session via cookies on exchange (if code is valid)
+    // If there was an error from Supabase, surface it in dev; otherwise continue.
+    const error = url.searchParams.get("error");
     if (error) {
-        console.error("[auth/callback] exchange error:", error.message);
-        return NextResponse.redirect(new URL("/auth/sign-in?error=1", url));
+        // common: otp_expired, access_denied
+        return NextResponse.redirect(
+            new URL(`/auth/sign-in?error=1`, url.origin), { status: 307 }
+        );
     }
 
+    // Basic "first-time" detection:
+    // If the user has no profile row (or first_name is null), route to /complete?first=1
     const { data: { user } } = await supabase.auth.getUser();
+
     if (!user) {
-        return NextResponse.redirect(new URL("/auth/sign-in?error=2", url));
+        return NextResponse.redirect(new URL("/auth/sign-in?error=1", url.origin));
     }
 
-    // ensure profile row
-    await supabase.from("profiles").upsert(
-        { id: user.id, email: user.email ?? null },
-        { onConflict: "id" }
-    );
+    const { data: prof } = await supabase
+        .from("profiles")
+        .select("first_name")
+        .eq("id", user.id)
+        .maybeSingle();
 
-    // first time? go to complete
-    const { data: profile } = await supabase
-        .from("profiles").select("first_name").eq("id", user.id).maybeSingle();
+    const hasFirst = !!(prof?.first_name && prof.first_name.trim().length > 0);
 
-    if (!profile?.first_name) {
-        return NextResponse.redirect(new URL("/complete?first=1", url));
+    if (!hasFirst) {
+        const dest = new URL("/complete?first=1", url.origin);
+        if (redirectParam) dest.searchParams.set("redirect", redirectParam);
+        return NextResponse.redirect(dest);
     }
 
-    // assessments?
-    const { count } = await supabase
-        .from("assessment_results_2")
-        .select("id", { head: true, count: "exact" })
-        .eq("user_id", user.id);
-
-    const hasAssessments = (count ?? 0) > 0;
-    const safe = safeInternal(redirectParam);
-
-    if (safe && hasAssessments) return NextResponse.redirect(new URL(safe, url));
-    if (!hasAssessments) return NextResponse.redirect(new URL("/dashboard?first=1", url));
-    return NextResponse.redirect(new URL("/dashboard", url));
+    // If there was a redirect request, honor it, else go to the dashboard
+    const dest = new URL(redirectParam || "/dashboard", url.origin);
+    return NextResponse.redirect(dest);
 }

@@ -1,42 +1,52 @@
 // File: src/app/dashboard/page.tsx
-import { supabaseServerComponent } from "@/lib/supabase/server";
-import ExploreMenuServer from "@/components/ExploreMenuServer";
-import AppHeaderServer from "@/components/AppHeaderServer";
+import AppHeaderServer from "../../components/AppHeaderServer";
+import ExploreMenuServer from "../../components/ExploreMenuServer";
+
+// Dashboard cards (server components)
+import AssessmentCard from "../../components/dashboard/AssessmentCard";
+import CoachGuidanceCard from "../../components/dashboard/CoachGuidanceCard";
+import UpcomingEventsCardCalendar from "../../components/dashboard/UpcomingEventsCardCalendar";
+import MessagesPreviewCard from "../../components/dashboard/MessagesPreviewCard";
 
 export default async function DashboardPage() {
-    const supabase = supabaseServerComponent();
-    const { data: { user } } = await supabase.auth.getUser();
+    return (
+        <>
+            <AppHeaderServer />
+            <ExploreMenuServer />
 
-    if (!user) {
-        return (
-            <main style={{ maxWidth: 960, margin: "24px auto" }}>
-                <AppHeaderServer />
-                <section className="card" style={{ padding: 16, marginTop: 16 }}>
-                    <h1>Dashboard</h1>
-                    <div className="muted">Please sign in to view your dashboard.</div>
+            <main
+                className="container"
+                style={{
+                    maxWidth: 1120,
+                    margin: "24px auto",
+                    padding: "0 16px",
+                    display: "grid",
+                    gap: 16,
+                }}
+            >
+                {/* Hero: Alignment */}
+                <section>
+                    <AssessmentCard />
+                </section>
+
+                {/* Guidance + Events */}
+                <section
+                    style={{
+                        display: "grid",
+                        gap: 16,
+                        gridTemplateColumns: "minmax(0, 1.2fr) minmax(0, 0.8fr)",
+                        alignItems: "start",
+                    }}
+                >
+                    <CoachGuidanceCard phase="all" />
+                    <UpcomingEventsCardCalendar limit={3} showJoin showCalendar />
+                </section>
+
+                {/* Messages */}
+                <section>
+                    <MessagesPreviewCard />
                 </section>
             </main>
-        );
-    }
-
-    // Example: compute unread
-    const { count: unreadCount } = await supabase
-        .from("messages")
-        .select("id", { head: true, count: "exact" })
-        .eq("recipient_id", user.id)
-        .is("read_at", null);
-
-    return (
-        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
-            <AppHeaderServer unreadCount={unreadCount ?? 0} />
-            <ExploreMenuServer />
-            <section className="card" style={{ padding: 16, marginTop: 16 }}>
-                <h2>Your A.B.L.E. Alignment</h2>
-                <div className="muted" style={{ marginTop: 6 }}>
-                    Welcome back! View your latest assessment, guidance, events and messages.
-                </div>
-            </section>
-        </main>
+        </>
     );
 }
-

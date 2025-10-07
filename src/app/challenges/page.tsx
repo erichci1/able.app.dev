@@ -1,51 +1,153 @@
 // File: src/app/challenges/page.tsx
+import ExploreMenuServer from "../../components/ExploreMenuServer";
 import { supabaseServerComponent } from "../../lib/supabase/server";
 
-type ChallengeRow = {
-    id: string;
-    title: string | null;
-    description: string | null;
-    week_number?: number | null;
-    difficulty?: string | null;
-    challenge_url?: string | null;
-    created_at: string | null;
-    phase?: string | null;
-};
+type SP = Record<string, string | string[] | undefined>;
+const s = (v?: string | string[] | undefined) => (v == null ? undefined : Array.isArray(v) ? v[0] : v);
 
-export default async function ChallengesPage() {
+const PHASES = ["all", "activate", "build", "leverage", "execute"] as const;
+type Phase = typeof PHASES[number];
+
+export default async function ChallengesPage({ searchParams }: { searchParams?: Promise<SP> }) {
+    const sp: SP = (await searchParams) ?? {};
+    const phase = (s(sp.phase) as Phase) ?? "all";
+    const sortAsc = s(sp.sort) === "asc";
+    const q = s(sp.q)?.trim();
+
     const supabase = supabaseServerComponent();
-    const { data } = await supabase
-        .from("challenges")
-        .select("id,title,description,challenge_url,week_number,difficulty,phase,created_at")
-        .order("created_at", { ascending: false })
-        .limit(100);
 
-    const rows = (data ?? []) as ChallengeRow[];
+    async function fetchPhaseAware() {
+        let qy = supabase
+            .from("challenges")
+            .select("id, title, description, week_number, difficulty, challenge_url, created_at, phase")
+            .order("created_at", { ascending: !!sortAsc });
+        if (phase !== "all") qy = qy.eq("phase", phase);
+        if (q) qy = qy.ilike("title", `%${q}%`);
+        return await qy;
+    }
+
+    async function fetchFallback() {
+        let qy = supabase
+            .from("challenges")
+            .select("id, title, description, week_number, difficulty, challenge_url, created_at")
+            .order("created_at", { ascending: !!sortAsc });
+        if (q) qy = qy.ilike("title", `%${q}%`);
+        return await qy;
+    }
+
+    const try1 = await fetchPhaseAware();
+    const { data, error } =
+        try1.error && /column .*phase.* does not exist/i.test(try1.error.message)
+            ? await fetchFallback()
+            : try1;
+
+    const rows = data ?? [];
 
     return (
-        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
-            <section className="card" style={{ padding: 16 }}>
-                <h1>Challenges</h1>
-                {!rows.length ? (
-                    <div className="muted" style={{ marginTop: 6 }}>No challenges yet.</div>
+        <>
+            <ExploreMenuServer />
+
+            <section className="card" style={{ maxWidth: 1040, margin: "24px auto" }}>
+                <header className="hstack" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <h1>Challenges</h1>
+                    <div className="hstack" style={{ gap: 8, flexWrap: "wrap" as const }}>
+                        <PhaseChips active={phase} />
+                        <SortChips phase={phase} sort={sortAsc ? "asc" : "desc"} q={q} />
+                    </div>
+                </header>
+
+                {error ? (
+                    <div style={{ color: "#991b1b", marginTop: 8 }}>{error.message}</div>
+                ) : !rows.length ? (
+                    <div className="muted" style={{ marginTop: 6 }}>
+                        {phase === "all" ? "No challenges yet." : `No ${cap(phase)} challenges yet.`}
+                        {q ? ` Matching “${q}”.` : ""}
+                    </div>
                 ) : (
-                    <ul style={{ marginTop: 12 }}>
-                        {rows.map(c => (
-                            <li key={c.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                                <div style={{ fontWeight: 900 }}>{c.title}</div>
-                                {c.description && <div className="muted">{c.description}</div>}
-                                {c.challenge_url && (
-                                    <div style={{ marginTop: 6 }}>
-                                        <a className="btn btn-ghost" href={c.challenge_url} target="_blank" rel="noreferrer">
+                    <ul style={{ marginTop: 8 }}>
+                        {rows.map((row) => (
+                            <li
+                                key={row.id}
+                                style={{
+                                    padding: 12,
+                                    borderTop: "1px solid var(--border)",
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr auto",
+                                    gap: 12,
+                                    alignItems: "center",
+                                }}
+                            >
+                                <div>
+                                    <div style={{ fontWeight: 900 }}>{row.title || "Untitled"}</div>
+                                    <div className="muted" style={{ marginTop: 4 }}>
+                                        {fmt(row.created_at)}
+                                        {row.difficulty ? ` • ${row.difficulty}` : ""}
+                                        {row.week_number ? ` • Week ${row.week_number}` : ""}
+                                        {"phase" in row && (row as any).phase ? ` • ${cap((row as any).phase as string)}` : ""}
+                                    </div>
+                                    {row.description && <div className="muted" style={{ marginTop: 6 }}>{row.description}</div>}
+                                </div>
+                                <div className="hstack" style={{ gap: 8, justifySelf: "end" }}>
+                                    {row.challenge_url && (
+                                        <a className="btn btn-primary" href={row.challenge_url!} target="_blank" rel="noopener noreferrer">
                                             Open
                                         </a>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </li>
                         ))}
                     </ul>
                 )}
             </section>
-        </main>
+        </>
     );
 }
+
+function PhaseChips({ active }: { active: Phase }) {
+    return (
+        <div className="hstack" style={{ gap: 8, flexWrap: "wrap" as const }}>
+            {["all", "activate", "build", "leverage", "execute"].map((p) => {
+                const params = new URLSearchParams(); params.set("phase", p);
+                const href = `?${params.toString()}`;
+                const is = p === active;
+                return (
+                    <a
+                        key={p}
+                        href={href}
+                        className="btn"
+                        aria-pressed={is}
+                        style={{
+                            padding: "6px 10px",
+                            borderRadius: 999,
+                            fontWeight: 800,
+                            background: is ? "#0C2D6F" : "#fff",
+                            color: is ? "#fff" : "#0f172a",
+                            border: "1px solid var(--border)",
+                        }}
+                    >
+                        {cap(p)}
+                    </a>
+                );
+            })}
+        </div>
+    );
+}
+
+function SortChips({ phase, sort, q }: { phase: Phase; sort: "asc" | "desc"; q?: string }) {
+    const make = (srt: "asc" | "desc") => {
+        const p = new URLSearchParams();
+        p.set("phase", phase);
+        p.set("sort", srt);
+        if (q) p.set("q", q);
+        return `?${p.toString()}`;
+    };
+    return (
+        <div className="hstack" style={{ gap: 8 }}>
+            <a className="btn" href={make("asc")}>Oldest</a>
+            <a className="btn" href={make("desc")}>Newest</a>
+        </div>
+    );
+}
+
+function cap(v: string) { return v ? v[0].toUpperCase() + v.slice(1) : ""; }
+function fmt(iso?: string | null) { return iso ? new Date(iso).toLocaleString() : ""; }

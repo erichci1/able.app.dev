@@ -1,53 +1,117 @@
 // File: src/app/messages/page.tsx
-import { supabaseServerComponent } from "@/lib/supabase/server";
-import AppHeaderServer from "@/components/AppHeaderServer";
-import ExploreMenuServer from "@/components/ExploreMenuServer";
+import Link from "next/link";
+import ExploreMenuServer from "../../components/ExploreMenuServer";
+import { supabaseServerComponent } from "../../lib/supabase/server";
 
-export default async function MessagesPage() {
+type SP = Record<string, string | string[] | undefined>;
+const s = (v?: string | string[] | undefined) =>
+    v == null ? undefined : Array.isArray(v) ? v[0] : v;
+
+export default async function MessagesPage({
+    searchParams,
+}: {
+    searchParams?: Promise<SP>;
+}) {
+    const sp: SP = (await searchParams) ?? {};
+    const filter = (s(sp.filter) as "all" | "unread" | "read" | undefined) ?? "all";
+    const sortAsc = s(sp.sort) === "asc";
+
     const supabase = supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+
+    if (!user?.id) {
         return (
-            <main style={{ maxWidth: 960, margin: "24px auto" }}>
-                <AppHeaderServer />
-                <section className="card" style={{ padding: 16, marginTop: 16 }}>
+            <>
+                <ExploreMenuServer />
+                <section className="card" style={{ maxWidth: 1040, margin: "24px auto" }}>
                     <h1>Messages</h1>
-                    <div className="muted">Please sign in to view your inbox.</div>
+                    <div className="muted" style={{ marginTop: 6 }}>
+                        Please sign in to view your inbox.
+                    </div>
                 </section>
-            </main>
+            </>
         );
     }
 
-    const { count: unreadCount } = await supabase
-        .from("messages").select("id", { head: true, count: "exact" })
-        .eq("recipient_id", user.id).is("read_at", null);
-
-    const { data: items } = await supabase
+    let q = supabase
         .from("messages")
-        .select("id,subject,sender_name,created_at,read_at")
+        .select("id, subject, sender_name, created_at, read_at")
         .eq("recipient_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .order("created_at", { ascending: !!sortAsc });
+
+    if (filter === "unread") q = q.is("read_at", null);
+    if (filter === "read") q = q.not("read_at", "is", null);
+
+    const { data, error } = await q;
 
     return (
-        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
-            <AppHeaderServer unreadCount={unreadCount ?? 0} />
+        <>
             <ExploreMenuServer />
-            <section className="card" style={{ padding: 16, marginTop: 16 }}>
-                <h1>Messages</h1>
-                <ul style={{ marginTop: 12 }}>
-                    {(items ?? []).map(m => (
-                        <li key={m.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                            <a href={`/message?id=${encodeURIComponent(m.id)}`} style={{ fontWeight: 700 }}>
-                                {m.subject || "(no subject)"}
-                            </a>
-                            <div className="muted">
-                                From {m.sender_name ?? "Coach"} — {new Date(m.created_at).toLocaleString()}
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+
+            <section className="card" style={{ maxWidth: 1040, margin: "24px auto" }}>
+                <header className="hstack" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                    <h1>Messages</h1>
+                    <Filters filter={filter} sort={sortAsc ? "asc" : "desc"} />
+                </header>
+
+                {error ? (
+                    <div style={{ color: "#991b1b", marginTop: 8 }}>{error.message}</div>
+                ) : !data?.length ? (
+                    <div className="muted" style={{ marginTop: 6 }}>No messages.</div>
+                ) : (
+                    <ul style={{ marginTop: 8 }}>
+                        {data.map((m) => (
+                            <li
+                                key={m.id}
+                                style={{
+                                    padding: 12,
+                                    borderTop: "1px solid var(--border)",
+                                    display: "grid",
+                                    gridTemplateColumns: "1fr auto",
+                                    gap: 12,
+                                    alignItems: "center",
+                                }}
+                            >
+                                <div>
+                                    <div style={{ fontWeight: 900 }}>{m.subject || "(no subject)"}</div>
+                                    <div className="muted" style={{ marginTop: 4 }}>
+                                        From {m.sender_name ?? "Coach"} — {fmt(m.created_at)} {m.read_at ? "" : " • Unread"}
+                                    </div>
+                                </div>
+                                <div className="hstack" style={{ gap: 8, justifySelf: "end" }}>
+                                    <Link className="btn btn-ghost" href={`/message?id=${encodeURIComponent(m.id)}`}>Open</Link>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
             </section>
-        </main>
+        </>
     );
+}
+
+function Filters({ filter, sort }: { filter: "all" | "unread" | "read"; sort: "asc" | "desc" }) {
+    const base = new URLSearchParams();
+    const make = (f: string, srt: string) => {
+        const p = new URLSearchParams(base);
+        p.set("filter", f);
+        p.set("sort", srt);
+        return `?${p.toString()}`;
+    };
+
+    return (
+        <div className="hstack" style={{ gap: 8, flexWrap: "wrap" as const }}>
+            <a className="btn" href={make("all", sort)}>All</a>
+            <a className="btn" href={make("unread", sort)}>Unread</a>
+            <a className="btn" href={make("read", sort)}>Read</a>
+            <span style={{ width: 12 }} />
+            <a className="btn" href={make(filter, "asc")}>Oldest</a>
+            <a className="btn" href={make(filter, "desc")}>Newest</a>
+        </div>
+    );
+}
+
+function fmt(iso?: string | null) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleString();
 }

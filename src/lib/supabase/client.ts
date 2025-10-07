@@ -1,8 +1,10 @@
-// File: src/lib/supabase/client.ts
-"use client";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+// src/lib/supabase/client.ts
+import { createClient } from "@supabase/supabase-js";
 
-/** For Client Components / hooks */
 export function supabaseClient() {
-    return createClientComponentClient();
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { persistSession: true, autoRefreshToken: true } }
+    );
 }

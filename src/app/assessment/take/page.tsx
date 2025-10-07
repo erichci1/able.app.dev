@@ -13,11 +13,12 @@ function buildJotformSrc(email: string, userId: string) {
 }
 
 export default async function TakeAssessmentPage() {
-    const supabase = supabaseServerComponent();
+    const supabase = await supabaseServerComponent();
     const { data: { user } } = await supabase.auth.getUser();
+
     if (!user?.email) {
         return (
-            <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+            <main className="container" style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
                 <section className="card" style={{ padding: 16 }}>
                     <h1>Alignment Assessment</h1>
                     <div className="muted" style={{ marginTop: 6 }}>
@@ -34,7 +35,7 @@ export default async function TakeAssessmentPage() {
     const src = buildJotformSrc(user.email, user.id);
 
     return (
-        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
+        <main className="container" style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
             <ExploreMenuServer />
             <section className="card" style={{ padding: 16, marginTop: 16 }}>
                 <h1>Alignment Assessment</h1>
@@ -45,11 +46,10 @@ export default async function TakeAssessmentPage() {
                     <iframe
                         title="A.B.L.E. Alignment"
                         src={src}
-                        style={{ width: "100%", height: "80vh", border: "0" }}
+                        style={{ width: "100%", height: "80vh", border: 0 }}
                         allow="clipboard-write *"
                     />
                 </div>
-                {/* Optional bridge if your Jotform thank-you returns with ?done=1 inside iframe */}
                 <TakeAssessmentRedirectBridge />
             </section>
         </main>

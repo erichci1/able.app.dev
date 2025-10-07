@@ -1,43 +1,48 @@
 // File: src/app/events/page.tsx
-import { supabaseServerComponent } from "@/lib/supabase/server";
-import AppHeaderServer from "@/components/AppHeaderServer";
-import ExploreMenuServer from "@/components/ExploreMenuServer";
+import Link from "next/link";
+import { supabaseServerComponent } from "../../lib/supabase/server";
 
-type SP = Record<string, string | string[] | undefined>;
-
-export default async function EventsPage({
-    searchParams,
-}: { searchParams?: Promise<SP> }) {
-    const sp = (await searchParams) ?? {};
+export default async function EventsListPage() {
     const supabase = supabaseServerComponent();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    const { count: unreadCount } = await supabase
-        .from("messages").select("id", { head: true, count: "exact" })
-        .eq("recipient_id", user?.id ?? "");
-
-    const { data: events } = await supabase
+    const { data, error } = await supabase
         .from("community_events")
-        .select("id,title,description,start_at,event_type")
-        .order("start_at", { ascending: true })
-        .limit(20);
+        .select("id,title,start_at,end_at,event_type,location,venue")
+        .order("start_at", { ascending: true });
+
+    if (error) {
+        return (
+            <section className="card">
+                <h2>Events</h2>
+                <div style={{ color: "#991b1b" }}>{error.message}</div>
+            </section>
+        );
+    }
+
+    const rows = data ?? [];
 
     return (
-        <main style={{ maxWidth: 1040, margin: "24px auto", padding: "0 16px" }}>
-            <AppHeaderServer unreadCount={unreadCount ?? 0} />
-            <ExploreMenuServer />
-            <section className="card" style={{ padding: 16, marginTop: 16 }}>
-                <h1>Events</h1>
-                <div className="muted">Upcoming events.</div>
-                <ul style={{ marginTop: 12 }}>
-                    {(events ?? []).map(ev => (
-                        <li key={ev.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                            <div style={{ fontWeight: 700 }}>{ev.title}</div>
-                            <div className="muted">{ev.description}</div>
+        <section className="card">
+            <h2>Events</h2>
+            {!rows.length ? (
+                <div className="muted" style={{ marginTop: 6 }}>No events found.</div>
+            ) : (
+                <ul style={{ marginTop: 8 }}>
+                    {rows.map((ev) => (
+                        <li key={ev.id} style={{ padding: 12, borderTop: "1px solid var(--border)" }}>
+                            <div style={{ fontWeight: 900 }}>{ev.title || "Untitled"}</div>
+                            <div className="muted" style={{ marginTop: 4 }}>
+                                {ev.start_at ? new Date(ev.start_at).toLocaleString() : ""}
+                                {ev.location ? ` • ${ev.location}` : ev.venue ? ` • ${ev.venue}` : ""}
+                                {ev.event_type ? ` • ${ev.event_type}` : ""}
+                            </div>
+                            <div className="hstack" style={{ marginTop: 8 }}>
+                                <Link className="btn btn-ghost" href={`/event?id=${encodeURIComponent(ev.id)}`}>Details</Link>
+                            </div>
                         </li>
                     ))}
                 </ul>
-            </section>
-        </main>
+            )}
+        </section>
     );
 }
