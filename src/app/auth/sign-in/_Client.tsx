@@ -6,48 +6,86 @@ import { supabaseClient } from "@/lib/supabase/client";
 
 type Mode = "magic" | "google";
 
-/** ✅ Environment-safe Base URL Resolver */
+/** Environment-safe base URL */
 const getBaseUrl = () => {
-    // Browser client-side always uses current domain
     if (typeof window !== "undefined") return window.location.origin;
-
-    // Render / production fallback
-    if (process.env.NEXT_PUBLIC_SITE_URL)
-        return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, ""); // trim trailing slash just in case
-
-    // Development fallback
-    return "https://dev.app.ableframework.com";
+    return (process.env.NEXT_PUBLIC_SITE_URL || "https://app.dev.ableframework.com").replace(/\/$/, "");
 };
+
+/** Parse `#access_token=…&refresh_token=…` into an object */
+function parseHash(hash: string): Record<string, string> {
+    const out: Record<string, string> = {};
+    const h = hash.startsWith("#") ? hash.slice(1) : hash;
+    for (const part of h.split("&")) {
+        const [k, v] = part.split("=");
+        if (k) out[decodeURIComponent(k)] = decodeURIComponent(v ?? "");
+    }
+    return out;
+}
 
 export function SignInClient() {
     const router = useRouter();
     const sp = useSearchParams();
     const supa = React.useMemo(() => supabaseClient(), []);
 
+    // optional redirect from Framer etc.
     const redirectParam = sp.get("redirect");
     const redirectQS = redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : "";
-
-    const spError = sp.get("error");
-    const initialErr =
-        spError && spError !== "0"
-            ? "Your previous link was invalid or expired. Please try again."
-            : null;
 
     const [mode, setMode] = React.useState<Mode>("magic");
     const [email, setEmail] = React.useState("");
     const [loading, setLoading] = React.useState(false);
     const [msg, setMsg] = React.useState<string | null>(null);
-    const [err, setErr] = React.useState<string | null>(initialErr);
+    const [err, setErr] = React.useState<string | null>(
+        sp.get("error") && sp.get("error") !== "0"
+            ? "Your previous link was invalid or expired. Please try again."
+            : null
+    );
 
-    // ✅ Skip sign-in if already authenticated
+    // 1) If we arrived from a magic-link with HASH TOKENS, consume them here
+    React.useEffect(() => {
+        if (typeof window === "undefined") return;
+        if (!window.location.hash) return;
+
+        const params = parseHash(window.location.hash);
+        const access_token = params["access_token"];
+        const refresh_token = params["refresh_token"];
+
+        const finish = async () => {
+            try {
+                if (access_token && refresh_token) {
+                    const { error } = await supa.auth.setSession({ access_token, refresh_token });
+                    if (error) {
+                        setErr(error.message);
+                        return;
+                    }
+                    // Clear the hash so we don't try again on back/refresh
+                    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+                    // Route after session
+                    if (redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/auth/")) {
+                        router.replace(redirectParam);
+                    } else {
+                        router.replace("/dashboard");
+                    }
+                }
+            } catch (e: any) {
+                setErr(e?.message ?? "Could not finalize sign-in.");
+            }
+        };
+
+        void finish();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // 2) Already signed in? Skip the form
     React.useEffect(() => {
         (async () => {
             const { data } = await supa.auth.getUser();
             if (data.user) router.replace("/dashboard");
         })();
-    }, [router, supa]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    // ✅ Always compute the right callback URL
     const callbackUrl = `${getBaseUrl()}/auth/callback${redirectQS}`;
 
     async function handleMagicLink(e: React.FormEvent) {
@@ -55,12 +93,10 @@ export function SignInClient() {
         setLoading(true);
         setErr(null);
         setMsg(null);
-
         const { error } = await supa.auth.signInWithOtp({
             email,
             options: { emailRedirectTo: callbackUrl },
         });
-
         if (error) setErr(error.message);
         else setMsg("Check your email for your secure login link.");
         setLoading(false);
@@ -70,20 +106,17 @@ export function SignInClient() {
         setLoading(true);
         setErr(null);
         setMsg(null);
-
         const { error } = await supa.auth.signInWithOAuth({
             provider: "google",
             options: { redirectTo: callbackUrl },
         });
-
         if (error) {
             setErr(error.message);
             setLoading(false);
         }
     }
 
-    /** Small toggle text to switch between Magic Link & Google */
-    function HelperLine() {
+    const HelperLine = () => {
         const linkStyle: React.CSSProperties = {
             fontWeight: 800,
             textDecoration: "underline",
@@ -111,7 +144,7 @@ export function SignInClient() {
                 )}
             </div>
         );
-    }
+    };
 
     return (
         <div className="container" style={{ maxWidth: 520, margin: "24px auto" }}>
@@ -123,7 +156,6 @@ export function SignInClient() {
                         : "Continue with Google to sign in."}
                 </div>
 
-                {/* Magic Link */}
                 {mode === "magic" && (
                     <form onSubmit={handleMagicLink} style={{ marginTop: 16 }} className="vstack">
                         <label htmlFor="email" className="muted" style={{ fontWeight: 700 }}>
@@ -155,7 +187,6 @@ export function SignInClient() {
                     </form>
                 )}
 
-                {/* Google */}
                 {mode === "google" && (
                     <div style={{ marginTop: 16 }}>
                         <button
