@@ -16,7 +16,7 @@ const getBaseUrl = () => {
         return process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, ""); // trim trailing slash just in case
 
     // Development fallback
-    return "http://localhost:3000";
+    return "https://dev.app.ableframework.com";
 };
 
 export function SignInClient() {
