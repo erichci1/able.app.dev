@@ -1,11 +1,12 @@
-// File: src/app/debug/whoami/route.ts
-import { NextResponse } from "next/server";
+// src/app/debug/whoami/route.ts
 import { headers } from "next/headers";
+import { NextResponse } from "next/server";
 
 export async function GET() {
     const h = await headers();
-    const host = h.get("host");
-    const proto = h.get("x-forwarded-proto");
-    const envBase = process.env.NEXT_PUBLIC_SITE_URL;
-    return NextResponse.json({ host, proto, NEXT_PUBLIC_SITE_URL: envBase });
+    return NextResponse.json({
+        host: h.get("host"),
+        proto: h.get("x-forwarded-proto"),
+        NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+    });
 }
