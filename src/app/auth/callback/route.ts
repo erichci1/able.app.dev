@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
+// Use your dev host for this service; in prod service set NEXT_PUBLIC_SITE_URL accordingly
 const BASE = (process.env.NEXT_PUBLIC_SITE_URL || "https://app1.ableframework.com").replace(/\/$/, "");
 const abs = (p: string) => `${BASE}${p.startsWith("/") ? p : `/${p}`}`;
 
@@ -15,11 +16,13 @@ export async function GET(req: NextRequest) {
             ? redirectParam
             : "/dashboard";
 
-    // Prepare the *final* redirect response up front
+    // Prepare a response we will mutate (cookies + final Location)
     const response = NextResponse.redirect(abs(code ? redirectTarget : "/auth/sign-in?error=missing_code"), 302);
 
-    // Create a Supabase server client that reads cookies and WRITES to this response
-    const cookieStore = cookies();
+    // ✅ Next 15: cookies() can be async in route handlers — await it
+    const cookieStore = await cookies();
+
+    // Create a Supabase client that READS from cookieStore and WRITES to `response`
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -29,25 +32,28 @@ export async function GET(req: NextRequest) {
                     return cookieStore.get(name)?.value;
                 },
                 set(name: string, value: string, options?: any) {
-                    response.cookies.set(name, value, options);
+                    response.cookies.set(name, value, options as any);
                 },
                 remove(name: string, options?: any) {
-                    response.cookies.set(name, "", { ...options, maxAge: 0 });
+                    response.cookies.set(name, "", { ...(options as any), maxAge: 0 });
                 },
             },
         }
     );
 
-    if (!code) return response; // already points to /auth/sign-in?error=missing_code
+    if (!code) {
+        // Already set Location to /auth/sign-in?error=missing_code
+        return response;
+    }
 
-    // Exchange the code for a session (this will SET cookies on `response`)
+    // Exchange the code for a session; this will trigger cookie writes onto `response`
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error || !data?.session) {
         response.headers.set("Location", abs("/auth/sign-in?error=1"));
         return response;
     }
 
-    // Optional: ensure profile row exists (safe upsert)
+    // (Optional) Ensure a profile row exists
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user?.id) {
@@ -56,11 +62,10 @@ export async function GET(req: NextRequest) {
                 .upsert({ id: user.id, email: user.email ?? null }, { onConflict: "id" });
         }
     } catch {
-        // ignore profile errors
+        // ignore profile creation errors
     }
 
-    // Finalize the redirect location (already absolute)
+    // Final redirect to requested page (absolute URL)
     response.headers.set("Location", abs(redirectTarget));
     return response;
 }
-
