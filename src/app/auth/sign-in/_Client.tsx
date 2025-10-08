@@ -6,82 +6,57 @@ import { supabaseClient } from "@/lib/supabase/client";
 
 type Mode = "magic" | "google";
 
-/** Environment-safe base URL */
+/** Environment-safe Base URL Resolver */
 const getBaseUrl = () => {
     if (typeof window !== "undefined") return window.location.origin;
     return (process.env.NEXT_PUBLIC_SITE_URL || "https://app1.ableframework.com").replace(/\/$/, "");
 };
-
-/** Parse `#access_token=…&refresh_token=…` into an object */
-function parseHash(hash: string): Record<string, string> {
-    const out: Record<string, string> = {};
-    const h = hash.startsWith("#") ? hash.slice(1) : hash;
-    for (const part of h.split("&")) {
-        const [k, v] = part.split("=");
-        if (k) out[decodeURIComponent(k)] = decodeURIComponent(v ?? "");
-    }
-    return out;
-}
 
 export function SignInClient() {
     const router = useRouter();
     const sp = useSearchParams();
     const supa = React.useMemo(() => supabaseClient(), []);
 
-    // optional redirect from Framer etc.
+    // Optional redirect passthrough
     const redirectParam = sp.get("redirect");
     const redirectQS = redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : "";
+
+    const spError = sp.get("error");
+    const initialErr =
+        spError && spError !== "0"
+            ? "Your previous link was invalid or expired. Please try again."
+            : null;
 
     const [mode, setMode] = React.useState<Mode>("magic");
     const [email, setEmail] = React.useState("");
     const [loading, setLoading] = React.useState(false);
     const [msg, setMsg] = React.useState<string | null>(null);
-    const [err, setErr] = React.useState<string | null>(
-        sp.get("error") && sp.get("error") !== "0"
-            ? "Your previous link was invalid or expired. Please try again."
-            : null
-    );
+    const [err, setErr] = React.useState<string | null>(initialErr);
 
-    // 1) If we arrived from a magic-link with HASH TOKENS, consume them here
-    React.useEffect(() => {
-        if (typeof window === "undefined") return;
-        if (!window.location.hash) return;
-
-        const params = parseHash(window.location.hash);
-        const access_token = params["access_token"];
-        const refresh_token = params["refresh_token"];
-
-        const finish = async () => {
-            try {
-                if (access_token && refresh_token) {
-                    const { error } = await supa.auth.setSession({ access_token, refresh_token });
-                    if (error) {
-                        setErr(error.message);
-                        return;
-                    }
-                    // Clear the hash so we don't try again on back/refresh
-                    window.history.replaceState(null, "", window.location.pathname + window.location.search);
-                    // Route after session
-                    if (redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("/auth/")) {
-                        router.replace(redirectParam);
-                    } else {
-                        router.replace("/dashboard");
-                    }
-                }
-            } catch (e: any) {
-                setErr(e?.message ?? "Could not finalize sign-in.");
-            }
-        };
-
-        void finish();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // 2) Already signed in? Skip the form
+    // ✅ Only redirect if there is a real session (token + cookies)
     React.useEffect(() => {
         (async () => {
-            const { data } = await supa.auth.getUser();
-            if (data.user) router.replace("/dashboard");
+            const { data: sessionRes } = await supa.auth.getSession();
+            const session = sessionRes?.session;
+
+            if (session) {
+                // We truly have a valid session (server cookie can be set by callback)
+                router.replace("/dashboard");
+                return;
+            }
+
+            // If no session but there’s a stale localStorage token, clear it so we stay on the page.
+            try {
+                const keys = Object.keys(localStorage);
+                const sbKey = keys.find((k) => k.startsWith("sb-") && k.endsWith("-auth-token"));
+                if (sbKey) {
+                    localStorage.removeItem(sbKey);
+                }
+                // Also clear any custom mirror key you may have used in the past
+                localStorage.removeItem("ableman.auth");
+            } catch {
+                // ignore
+            }
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -93,10 +68,12 @@ export function SignInClient() {
         setLoading(true);
         setErr(null);
         setMsg(null);
+
         const { error } = await supa.auth.signInWithOtp({
             email,
             options: { emailRedirectTo: callbackUrl },
         });
+
         if (error) setErr(error.message);
         else setMsg("Check your email for your secure login link.");
         setLoading(false);
@@ -106,17 +83,20 @@ export function SignInClient() {
         setLoading(true);
         setErr(null);
         setMsg(null);
+
         const { error } = await supa.auth.signInWithOAuth({
             provider: "google",
             options: { redirectTo: callbackUrl },
         });
+
         if (error) {
             setErr(error.message);
             setLoading(false);
         }
     }
 
-    const HelperLine = () => {
+    /** Toggle helper */
+    function HelperLine() {
         const linkStyle: React.CSSProperties = {
             fontWeight: 800,
             textDecoration: "underline",
@@ -144,7 +124,7 @@ export function SignInClient() {
                 )}
             </div>
         );
-    };
+    }
 
     return (
         <div className="container" style={{ maxWidth: 520, margin: "24px auto" }}>
@@ -156,6 +136,7 @@ export function SignInClient() {
                         : "Continue with Google to sign in."}
                 </div>
 
+                {/* Magic Link */}
                 {mode === "magic" && (
                     <form onSubmit={handleMagicLink} style={{ marginTop: 16 }} className="vstack">
                         <label htmlFor="email" className="muted" style={{ fontWeight: 700 }}>
@@ -187,6 +168,7 @@ export function SignInClient() {
                     </form>
                 )}
 
+                {/* Google */}
                 {mode === "google" && (
                     <div style={{ marginTop: 16 }}>
                         <button
@@ -219,10 +201,12 @@ export function SignInClient() {
                     </div>
                 )}
 
+                {/* Feedback */}
                 {msg && <div style={{ marginTop: 12, color: "#065f46" }}>{msg}</div>}
                 {err && <div style={{ marginTop: 12, color: "#991b1b" }}>{err}</div>}
             </section>
 
+            {/* Small note */}
             <section className="card" style={{ padding: 16 }}>
                 <div className="muted" style={{ fontSize: 12 }}>
                     By continuing, you agree to the Terms and acknowledge the Privacy Policy.
