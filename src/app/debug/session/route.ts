@@ -4,20 +4,29 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
 export async function GET() {
-    const cookieStore = cookies();
+    // ✅ Next 15: cookies() is async inside route handlers
+    const cookieStore = await cookies();
+
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         {
+            // Read-only cookie bridge (no writes in this debug endpoint)
             cookies: {
-                get: (name) => cookieStore.get(name)?.value,
-                // read-only for server components; route handler can set, but here we just inspect
-                set: () => { },
-                remove: () => { },
+                get(name: string) {
+                    return cookieStore.get(name)?.value;
+                },
+                set() { },
+                remove() { },
             },
         }
     );
-    const { data: { user }, error } = await supabase.auth.getUser();
-    const cookieNames = cookieStore.getAll().map((c) => c.name);
-    return NextResponse.json({ user, hasUser: !!user, error: error?.message ?? null, cookies: cookieNames });
+
+    const { data, error } = await supabase.auth.getUser();
+
+    return NextResponse.json({
+        hasUser: !!data.user,
+        user: data.user ?? null,
+        error: error?.message ?? null,
+    });
 }
