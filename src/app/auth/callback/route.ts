@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const response = NextResponse.redirect(abs(code ? redirectTarget : "/auth/sign-in?error=missing_code"), 302);
 
     // Create a Supabase server client that reads cookies and WRITES to this response
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -63,3 +63,4 @@ export async function GET(req: NextRequest) {
     response.headers.set("Location", abs(redirectTarget));
     return response;
 }
+
