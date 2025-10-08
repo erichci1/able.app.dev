@@ -9,7 +9,7 @@ type Mode = "magic" | "google";
 /** Environment-safe base URL */
 const getBaseUrl = () => {
     if (typeof window !== "undefined") return window.location.origin;
-    return (process.env.NEXT_PUBLIC_SITE_URL || "https://app.dev.ableframework.com").replace(/\/$/, "");
+    return (process.env.NEXT_PUBLIC_SITE_URL || "https://app1.ableframework.com").replace(/\/$/, "");
 };
 
 /** Parse `#access_token=…&refresh_token=…` into an object */
